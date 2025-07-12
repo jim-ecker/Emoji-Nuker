@@ -1,0 +1,177 @@
+#!/usr/bin/env python3
+"""
+Emoji Nuker - Remove emojis from code files in a project directory.
+
+A lightweight utility that scans your project directory and removes all emojis
+from code files. It's especially useful for cleaning up emoji-laden comments,
+log messages, or commit artifacts in codebases before production or archiving.
+
+Usage:
+    emoji-nuker /path/to/project
+
+Author: Your Name
+License: MIT
+"""
+
+import os
+import re
+import sys
+import argparse
+from pathlib import Path
+from typing import Set, Pattern
+
+
+# Supported file extensions
+CODE_EXTENSIONS: Set[str] = {
+    ".py", ".js", ".ts", ".cpp", ".c", ".h", ".java", ".rb", ".go", ".rs",
+    ".html", ".css", ".json", ".yml", ".yaml", ".sh", ".md", ".txt"
+}
+
+# Unicode emoji pattern
+EMOJI_PATTERN: Pattern = re.compile(
+    "["
+    "\U0001F600-\U0001F64F"  # emoticons
+    "\U0001F300-\U0001F5FF"  # symbols & pictographs
+    "\U0001F680-\U0001F6FF"  # transport & map symbols
+    "\U0001F1E0-\U0001F1FF"  # flags (iOS)
+    "\U00002700-\U000027BF"  # dingbats
+    "\U0001F900-\U0001F9FF"  # supplemental symbols and pictographs
+    "\U00002600-\U000026FF"  # miscellaneous symbols
+    "\U0001FA70-\U0001FAFF"  # symbols and pictographs extended-A
+    "\U000025A0-\U000025FF"  # geometric shapes
+    "]+", flags=re.UNICODE
+)
+
+
+def remove_emojis_from_file(file_path: Path) -> bool:
+    """
+    Remove emojis from a single file.
+    
+    Args:
+        file_path: Path to the file to process
+        
+    Returns:
+        True if the file was modified, False otherwise
+    """
+    try:
+        # Read file content
+        with file_path.open("r", encoding="utf-8") as f:
+            content = f.read()
+        
+        # Remove emojis
+        new_content = EMOJI_PATTERN.sub("", content)
+        
+        # Only write if content changed
+        if content != new_content:
+            with file_path.open("w", encoding="utf-8") as f:
+                f.write(new_content)
+            print(f"\033[32m✓ Cleaned: {file_path}\033[0m")
+            return True
+        else:
+            print(f"\033[34mℹ No emojis found: {file_path}\033[0m")
+            return False
+            
+    except UnicodeDecodeError:
+        print(f"\033[33m⚠ Skipping binary file: {file_path}\033[0m")
+        return False
+    except PermissionError:
+        print(f"\033[31m✗ Permission denied: {file_path}\033[0m")
+        return False
+    except Exception as e:
+        print(f"\033[31m✗ Failed to process {file_path}: {e}\033[0m")
+        return False
+
+
+def clean_directory(root: Path, verbose: bool = False) -> tuple[int, int]:
+    """
+    Recursively clean all code files in a directory.
+    
+    Args:
+        root: Root directory to scan
+        verbose: Enable verbose output
+        
+    Returns:
+        Tuple of (files_processed, files_modified)
+    """
+    files_processed = 0
+    files_modified = 0
+    
+    if verbose:
+        print(f"Scanning directory: {root}")
+        print(f"Supported extensions: {', '.join(sorted(CODE_EXTENSIONS))}")
+    
+    for path in root.rglob("*"):
+        if path.is_file() and path.suffix in CODE_EXTENSIONS:
+            files_processed += 1
+            if remove_emojis_from_file(path):
+                files_modified += 1
+    
+    return files_processed, files_modified
+
+
+def main():
+    """Main entry point."""
+    parser = argparse.ArgumentParser(
+        description="Remove emojis from code files in a project directory.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  emoji-nuker /path/to/project     # Clean all code files in project
+  emoji-nuker .                    # Clean current directory
+  emoji-nuker --verbose /path      # Verbose output
+        """
+    )
+    
+    parser.add_argument(
+        "directory",
+        type=str,
+        help="Path to the root of the project directory"
+    )
+    
+    parser.add_argument(
+        "--verbose", "-v",
+        action="store_true",
+        help="Enable verbose output"
+    )
+    
+    parser.add_argument(
+        "--version",
+        action="version",
+        version="emoji-nuker 1.0.0"
+    )
+    
+    args = parser.parse_args()
+    
+    # Validate directory
+    root_path = Path(args.directory)
+    if not root_path.exists():
+        print(f"\033[31m✗ Error: Directory does not exist: {root_path}\033[0m")
+        sys.exit(1)
+    
+    if not root_path.is_dir():
+        print(f"\033[31m✗ Error: Not a directory: {root_path}\033[0m")
+        sys.exit(1)
+    
+    # Process files
+    try:
+        files_processed, files_modified = clean_directory(root_path, args.verbose)
+        
+        print(f"\nSummary:")
+        print(f"   Files processed: {files_processed}")
+        print(f"   Files modified: {files_modified}")
+        
+        if files_modified > 0:
+            print(f"\033[32m✓ Successfully removed emojis from {files_modified} files!\033[0m")
+        else:
+            print("\033[34mℹ No files were modified.\033[0m")
+            
+    except KeyboardInterrupt:
+        print("\n\033[33m⚠ Operation cancelled by user\033[0m")
+        sys.exit(1)
+    except Exception as e:
+        print(f"\033[31m✗ Unexpected error: {e}\033[0m")
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main() 

@@ -1,0 +1,85 @@
+.TH EMOJI-NUKER 1 "2024-07-12" "Version 1.0.0" "User Commands"
+
+.SH NAME
+emoji-nuker \- Remove emojis from code files in a project directory
+
+.SH SYNOPSIS
+.B emoji-nuker
+[\fB\-v\fR|\fB\-\-verbose\fR]
+[\fB\-\-version\fR]
+[\fB\-h\fR|\fB\-\-help\fR]
+\fIdirectory\fR
+
+.SH DESCRIPTION
+.B emoji-nuker
+is a lightweight utility that scans your project directory and removes all emojis
+from code files. It's especially useful for cleaning up emoji-laden comments,
+log messages, or commit artifacts in codebases before production or archiving.
+
+The tool recursively scans the specified directory and processes files with the
+following extensions: .py, .js, .ts, .cpp, .c, .h, .java, .rb, .go, .rs,
+.html, .css, .json, .yml, .yaml, .sh, .md, .txt
+
+.SH OPTIONS
+.TP
+.BR \-v ", " \-\-verbose
+Enable verbose output, showing scanning progress and supported extensions.
+
+.TP
+.BR \-\-version
+Show version information and exit.
+
+.TP
+.BR \-h ", " \-\-help
+Show help message and exit.
+
+.SH ARGUMENTS
+.TP
+.I directory
+Path to the root of the project directory to scan for emojis.
+
+.SH EXAMPLES
+.TP
+Clean all code files in the current directory:
+.B emoji-nuker .
+
+.TP
+Clean all code files in a specific project:
+.B emoji-nuker /path/to/project
+
+.TP
+Clean with verbose output:
+.B emoji-nuker --verbose /path/to/project
+
+.SH EXIT STATUS
+.TP
+.B 0
+Success - emojis were removed or no emojis were found.
+
+.TP
+.B 1
+Error - invalid directory, permission denied, or other error occurred.
+
+.SH FILES
+.TP
+.B ~/.local/bin/emoji-nuker
+User installation location (if installed with make install-user)
+
+.TP
+.B /usr/local/bin/emoji-nuker
+System installation location (if installed with make install)
+
+.SH AUTHOR
+Written by the emoji-nuker development team.
+
+.SH BUGS
+Report bugs to the project repository.
+
+.SH COPYRIGHT
+Copyright © 2024. This is free software; see the source for copying conditions.
+There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+
+.SH SEE ALSO
+.BR grep (1),
+.BR find (1),
+.BR sed (1) 

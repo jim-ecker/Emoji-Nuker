@@ -4,15 +4,12 @@
 SCRIPT_NAME="emoji-nuker"
 INSTALL_DIR="$HOME/.local/bin"
 SCRIPT_PATH="$INSTALL_DIR/$SCRIPT_NAME"
-SHELL_RC="$HOME/.zshrc"
-EXPORT_LINE='export PATH="$HOME/.local/bin:$PATH"'
-
 PYTHON_SCRIPT_CONTENT='
 import os
 import re
 from pathlib import Path
 
-CODE_EXTENSIONS = {".py", ".js", ".ts", ".cpp", ".c", ".h", ".java", ".rb", ".go", ".rs", ".html", ".css", ".json", ".yml", ".yaml"}
+CODE_EXTENSIONS = {".py", ".js", ".ts", ".cpp", ".c", ".h", ".java", ".rb", ".go", ".rs", ".html", ".css", ".json", ".yml", ".yaml", ".sh", ".md", ".txt"}
 
 EMOJI_PATTERN = re.compile(
     "["
@@ -59,28 +56,42 @@ if __name__ == "__main__":
         clean_directory(root_path)
 '
 
-# Step 1: Ensure target directory exists
+# Ensure install directory exists
 mkdir -p "$INSTALL_DIR"
 
-# Step 2: Write the Python script to the install directory
-echo "$PYTHON_SCRIPT_CONTENT" > "$SCRIPT_PATH"
+#  Now write the script to disk with shebang
+echo '#!/usr/bin/env python3' > "$SCRIPT_PATH"
+echo "$PYTHON_SCRIPT_CONTENT" >> "$SCRIPT_PATH"
 chmod +x "$SCRIPT_PATH"
+echo -e "\033[32m Installed emoji-nuker to $SCRIPT_PATH\033[0m"
 
-# Step 3: Ensure ~/.local/bin is in PATH, add it to ~/.zshrc if missing
-if [[ ":$PATH:" != *":$INSTALL_DIR:"* ]]; then
-    if ! grep -Fxq "$EXPORT_LINE" "$SHELL_RC"; then
-        echo "" >> "$SHELL_RC"
-        echo "# Added by emoji-nuker installer" >> "$SHELL_RC"
-        echo "$EXPORT_LINE" >> "$SHELL_RC"
-        echo "✅ Added $INSTALL_DIR to your PATH in $SHELL_RC"
-    else
-        echo "⚠️  $INSTALL_DIR not currently in PATH, but already exported in $SHELL_RC"
-    fi
-    echo "➡️  Please run 'source $SHELL_RC' or restart your shell."
+# Detect shell and shell config file
+CURRENT_SHELL=$(basename "$SHELL")
+case "$CURRENT_SHELL" in
+  zsh)  SHELL_RC="$HOME/.zshrc" ;;
+  bash) SHELL_RC="$HOME/.bashrc" ;;
+  fish) SHELL_RC="$HOME/.config/fish/config.fish" ;;
+  *)    SHELL_RC="$HOME/.profile" ;;
+esac
+
+EXPORT_LINE='export PATH="$HOME/.local/bin:$PATH"'
+FISH_LINE='set -gx PATH $HOME/.local/bin $PATH'
+
+# Add export if not present
+if [[ "$CURRENT_SHELL" == "fish" ]]; then
+  if ! grep -Fxq "$FISH_LINE" "$SHELL_RC"; then
+    echo "$FISH_LINE" >> "$SHELL_RC"
+    echo -e "\033[32m Added emoji-nuker to your fish PATH in $SHELL_RC\033[0m"
+  fi
 else
-    echo "✅ $INSTALL_DIR is already in your PATH."
+  if ! grep -Fxq "$EXPORT_LINE" "$SHELL_RC"; then
+    echo "" >> "$SHELL_RC"
+    echo "# Added by emoji-nuker installer" >> "$SHELL_RC"
+    echo "$EXPORT_LINE" >> "$SHELL_RC"
+    echo -e "\033[32m Added emoji-nuker to your PATH in $SHELL_RC\033[0m"
+  fi
 fi
 
-echo "✅ Installed successfully. You can now run:"
-echo "   $SCRIPT_NAME /path/to/project"
+echo "Please run 'source $SHELL_RC' or restart your shell to use 'emoji-nuker'.\033[0m"
+echo "Usage: emoji-nuker /path/to/your/project\033[0m"
 
