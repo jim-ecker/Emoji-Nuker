@@ -4,7 +4,7 @@
 
 ---
 
-## ✨ Features
+##  Features
 
 - Recursively scans your project directory
 - Removes emojis from common source code files:
@@ -15,7 +15,7 @@
 
 ---
 
-## 📦 Installation
+##  Installation
 
 Run the install script to set up `emoji-nuker` in your shell:
 
@@ -27,7 +27,7 @@ This installs the tool to `~/.local/bin/emoji-nuker` and adds it to your `PATH` 
 
 ---
 
-## 🚀 Usage
+## Usage
 
 ```bash
 emoji-nuker /path/to/your/project
@@ -37,7 +37,7 @@ It will recursively find all matching code files and strip out any emojis.
 
 ---
 
-## 🧼 Uninstallation
+## Uninstallation
 
 To fully remove Emoji Nuker from your system:
 
@@ -51,18 +51,18 @@ This will:
 
 ---
 
-## 🔧 Customization
+## Customization
 
 You can modify the file extensions and emoji matching rules in the `install_emoji_nuker.sh` script. By default, it targets the most common programming and markup formats.
 
 ---
 
-## 🛡️ License
+## License
 
 MIT License – use freely, modify wildly, share generously.
 
 ---
 
-## 💡 Why Emoji Nuker?
+## Why Emoji Nuker?
 
 Because not every production system wants to parse 🐍, 🚀, or 😅.
