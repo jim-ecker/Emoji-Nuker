@@ -29,6 +29,38 @@ jobs:
           validate_no_emoji_in_substitutions()
           "
 
+      - name: Create test input file
+        run: |
+          cat > test_emoji_input.py << 'EOF'
+          #!/usr/bin/env python3
+          """
+          Test file with various emojis for emoji-nuker testing
+          """
+          
+          # Common emojis that should be substituted
+          print("Status: ✅ Success, ❌ Failed")
+          print("Symbols: 🔥 Fire, ⚠ Warning, ⭐ Star")
+          print("Arrows: ➡ Right arrow emoji")
+          print("Triangles: 🔺 Up triangle, 🔻 Down triangle")
+          print("Numbers: 1️⃣ 2️⃣ 3️⃣")
+          print("Letters: 🅰 🅱 🅾")
+          print("Faces: 😀 😊 😉 😢")
+          
+          # Unicode symbols that should NOT be replaced
+          print("Safe symbols: ✓ ✗ 火 ← → ↑ ↓")
+          print("Diagonal arrows: ↗ ↘ ↙ ↖")
+          print("Up-down arrows: ↕ ↔")
+          
+          def test_function():
+              """Function with emoji in docstring 🚀"""
+              return "Testing emoji removal! 🎉"
+          
+          # Comments with emojis
+          # This is a comment with fire 🔥
+          # Success indicator ✅
+          # Warning sign ⚠
+          EOF
+
       - name: Test basic substitution functionality
         run: |
           cp test_emoji_input.py test_emoji_output.py
@@ -181,7 +213,7 @@ jobs:
 
       - name: Clean up test files
         run: |
-          rm -f test_emoji_output.py test_emoji_label.py test_emoji_combined.py test_emoji_color.py test_arrows.txt
+          rm -f test_emoji_input.py test_emoji_output.py test_emoji_label.py test_emoji_combined.py test_emoji_color.py test_arrows.txt
 
       - name: Success
         if: success()
