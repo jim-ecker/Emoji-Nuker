@@ -17,6 +17,8 @@ import os
 import re
 import sys
 import argparse
+import unicodedata
+from emoji_lut import EMOJI_LUT, get_emoji_pattern
 from pathlib import Path
 from typing import Set, Pattern, Dict, List, Tuple, Optional
 
@@ -27,138 +29,487 @@ CODE_EXTENSIONS: Set[str] = {
     ".html", ".css", ".json", ".yml", ".yaml", ".sh", ".md", ".txt"
 }
 
-# Unicode emoji pattern (including variation selectors)
-EMOJI_PATTERN: Pattern = re.compile(
-    "["
-    "\U0001F600-\U0001F64F"  # emoticons
-    "\U0001F300-\U0001F5FF"  # symbols & pictographs
-    "\U0001F680-\U0001F6FF"  # transport & map symbols
-    "\U0001F1E0-\U0001F1FF"  # flags (iOS)
-    "\U00002700-\U000027BF"  # dingbats
-    "\U0001F900-\U0001F9FF"  # supplemental symbols and pictographs
-    "\U00002600-\U000026FF"  # miscellaneous symbols
-    "\U0001FA70-\U0001FAFF"  # symbols and pictographs extended-A
-    "\U000025A0-\U000025FF"  # geometric shapes
-    "\U0000FE00-\U0000FE0F"  # variation selectors
-    "\U0001F3FB-\U0001F3FF"  # skin tone modifiers
-    "]+", flags=re.UNICODE
-)
+# Use the comprehensive emoji pattern from the LUT (covers all popular emoji tools)
+EMOJI_PATTERN: Pattern = get_emoji_pattern()
 
-# Unicode substitution mapping for common emojis
-UNICODE_SUBSTITUTIONS: Dict[str, str] = {
-    # Success/Status
+# Emoticon to emoji mapping for smileys
+EMOTICON_MAPPING: Dict[str, str] = {
+    # Basic smileys
+    "😀": ":D",     # grinning face
+    "😁": ":D",     # beaming face with smiling eyes
+    "😂": ":D",     # face with tears of joy
+    "😃": ":D",     # grinning face with big eyes
+    "😄": ":D",     # grinning face with smiling eyes
+    "😅": ":)",     # grinning face with sweat
+    "😆": ":D",     # grinning squinting face
+    "😇": "O:)",    # smiling face with halo
+    "😈": ">:)",    # smiling face with horns
+    "😉": ";)",     # winking face
+    "😊": ":)",     # smiling face with smiling eyes
+    "😋": ":P",     # face savoring food
+    "😌": ":)",     # relieved face
+    "😍": ":*",     # smiling face with heart-eyes
+    "😎": "8)",     # smiling face with sunglasses
+    "😏": ":)",     # smirking face
+    "😐": ":|",     # neutral face
+    "😑": "-_-",    # expressionless face
+    "😒": ":/",     # unamused face
+    "😓": ":(",     # downcast face with sweat
+    "😔": ":(",     # pensive face
+    "😕": ":(",     # confused face
+    "😖": ":(",     # confounded face
+    "😗": ":*",     # kissing face
+    "😘": ":*",     # face blowing a kiss
+    "😙": ":*",     # kissing face with smiling eyes
+    "😚": ":*",     # kissing face with closed eyes
+    "😛": ":P",     # face with tongue
+    "😜": ";P",     # winking face with tongue
+    "😝": ":P",     # squinting face with tongue
+    "😞": ":(",     # disappointed face
+    "😟": ":(",     # worried face
+    "😠": ">:(",    # angry face
+    "😡": ">:(",    # pouting face
+    "😢": ":'(",    # crying face
+    "😣": ":(",     # persevering face
+    "😤": ">:(",    # face with steam from nose
+    "😥": ":(",     # sad but relieved face
+    "😦": ":(",     # frowning face with open mouth
+    "😧": ":(",     # anguished face
+    "😨": ":(",     # fearful face
+    "😩": ":(",     # weary face
+    "😪": ":(",     # sleepy face
+    "😫": ":(",     # tired face
+    "😬": ":S",     # grimacing face
+    "😭": ":'(",    # loudly crying face
+    "😮": ":O",     # face with open mouth
+    "😯": ":O",     # hushed face
+    "😰": ":(",     # anxious face with sweat
+    "😱": ":O",     # face screaming in fear
+    "😲": ":O",     # astonished face
+    "😳": ":O",     # flushed face
+    "😴": "(-_-)",  # sleeping face
+    "😵": "X(",     # dizzy face
+    "😶": ":|",     # face without mouth
+    "😷": ":(",     # face with medical mask
+    "🙂": ":)",     # slightly smiling face
+    "🙃": ":)",     # upside-down face
+    "🙄": ":/",     # face with rolling eyes
+    "🤐": ":|",     # zipper-mouth face
+    "🤑": "$_$",    # money-mouth face
+    "🤒": ":(",     # face with thermometer
+    "🤓": "8)",     # nerd face
+    "🤔": ":/",     # thinking face
+    "🤕": ":(",     # face with head-bandage
+    "🤗": ":)",     # hugging face
+    "🤠": ":)",     # cowboy hat face
+    "🤡": ":)",     # clown face
+    "🤢": ":(",     # nauseated face
+    "🤣": ":D",     # rolling on the floor laughing
+    "🤤": ":P",     # drooling face
+    "🤥": ":(",     # lying face
+    "🤧": ":(",     # sneezing face
+    "🤨": ":/",     # face with raised eyebrow
+    "🤩": ":*",     # star-struck
+    "🤪": ":P",     # zany face
+    "🤫": ":)",     # shushing face
+    "🤬": ">:(",    # face with symbols on mouth
+    "🤭": ":)",     # face with hand over mouth
+    "🤮": ":(",     # face vomiting
+    "🤯": ":O",     # exploding head
+    "🥰": ":*",     # smiling face with hearts
+    "🥱": ":(",     # yawning face
+    "🥲": ":)",     # smiling face with tear
+    "🥳": ":D",     # partying face
+    "🥴": ":(",     # woozy face
+    "🥵": ":(",     # hot face
+    "🥶": ":(",     # cold face
+    "🥺": ":(",     # pleading face
+    "🦄": ":)",     # unicorn (sometimes used as smiley)
+    "😺": ":)",     # grinning cat
+    "😸": ":D",     # grinning cat with smiling eyes
+    "😹": ":D",     # cat with tears of joy
+    "😻": ":*",     # smiling cat with heart-eyes
+    "😼": ":)",     # cat with wry smile
+    "😽": ":*",     # kissing cat
+    "🙀": ":O",     # weary cat
+    "😿": ":(",     # crying cat
+    "😾": ">:(",    # pouting cat
+    # Additional variations
+    "☺": ":)",      # smiling face (text style)
+    "☹": ":(",      # frowning face (text style)
+}
+
+# Color mapping for Unicode substitutions
+COLOR_MAPPING: Dict[str, str] = {
+    "red": "\033[31m",
+    "green": "\033[32m", 
+    "yellow": "\033[33m",
+    "blue": "\033[34m",
+    "magenta": "\033[35m",
+    "cyan": "\033[36m",
+    "white": "\033[37m",
+    "reset": "\033[0m"
+}
+
+# Base substitution patterns for different emoji categories
+BASE_SUBSTITUTIONS: Dict[str, str] = {
+    # Success/Status symbols
     "✅": "✓",  # check mark
-    "❌": "✗",  # ballot x
-    "⚠️": "⚠",  # warning sign
-    "ℹ️": "ℹ",  # information source
-    "🔍": "🔍",  # magnifying glass (keep as is, it's already unicode)
-    "📁": "📁",  # folder (keep as is)
-    "📊": "📊",  # bar chart (keep as is)
+    "❌": "✗",   # cross mark
+    "⚠": "!",    # warning sign
+    "ℹ": "i",    # information
+    "🔴": "O",   # red circle
+    "🟢": "O",   # green circle
+    "🟡": "O",   # yellow circle
+    "🔵": "O",   # blue circle
+    "🟣": "O",   # purple circle
+    "🟠": "O",   # orange circle
+    "⚫": "O",   # black circle
+    "⚪": "O",   # white circle
     
     # Arrows
-    "➡️": "→",  # right arrow
-    "⬅️": "←",  # left arrow
-    "⬆️": "↑",  # up arrow
-    "⬇️": "↓",  # down arrow
-    "🔄": "↻",  # clockwise arrows
+    "➡": "→",  # right arrow
+    "🔄": "R",  # refresh/reload
+    "🔃": "R",  # clockwise arrows
+    "🔁": "R",  # repeat
+    "🔂": "R",  # repeat once
     
     # Common symbols
-    "🚀": "↑",  # rocket -> up arrow
-    "💡": "💡",  # light bulb (keep as is)
-    "🔧": "🔧",  # wrench (keep as is)
-    "⚡": "⚡",  # high voltage (keep as is)
-    "🔥": "🔥",  # fire (keep as is)
-    "💯": "100",  # hundred points
-    "🎯": "◎",  # bullseye
-    "🎉": "🎉",  # party popper (keep as is)
-    "🎊": "🎊",  # confetti ball (keep as is)
-    
-    # Programming/tech
-    "🐍": "🐍",  # snake (keep as is)
-    "🐱‍💻": "💻",  # cat with laptop -> laptop
-    "🐱‍👤": "👤",  # ninja cat -> person
-    "🐱‍🚀": "🚀",  # astronaut cat -> rocket
-    "💻": "💻",  # laptop (keep as is)
-    "🖥️": "🖥",  # desktop computer
-    "📱": "📱",  # mobile phone (keep as is)
-    "🔗": "🔗",  # link symbol (keep as is)
-    "🔒": "🔒",  # lock (keep as is)
-    "🔓": "🔓",  # unlock (keep as is)
-    
-    # Emotions/expressions
-    "😅": "😅",  # grinning face with sweat (keep as is)
-    "😊": "😊",  # smiling face with smiling eyes (keep as is)
-    "😄": "😄",  # grinning face with smiling eyes (keep as is)
-    "😎": "😎",  # smiling face with sunglasses (keep as is)
-    "🤔": "🤔",  # thinking face (keep as is)
-    "😱": "😱",  # face screaming in fear (keep as is)
-    "😍": "😍",  # smiling face with heart-eyes (keep as is)
-    
-    # Objects
-    "📝": "📝",  # memo (keep as is)
-    "📄": "📄",  # page facing up (keep as is)
-    "📂": "📂",  # open file folder (keep as is)
-    "🗂️": "🗂",  # card index dividers
-    "📌": "📌",  # pushpin (keep as is)
-    "📍": "📍",  # round pushpin (keep as is)
-    "🔖": "🔖",  # bookmark (keep as is)
-    
-    # Time
-    "⏰": "⏰",  # alarm clock (keep as is)
-    "⏱️": "⏱",  # stopwatch
-    "⏲️": "⏲",  # timer clock
-    "🕐": "🕐",  # one o'clock (keep as is)
-    "🕙": "🕙",  # ten o'clock (keep as is)
-    
-    # Weather
-    "☀️": "☀",  # sun
-    "🌙": "🌙",  # new moon (keep as is)
-    "☁️": "☁",  # cloud
-    "🌧️": "🌧",  # cloud with rain
-    "⚡": "⚡",  # high voltage (keep as is)
+    "🚀": "▲",  # rocket
+    "💡": "O",  # light bulb -> circle
+    "🔧": "T",  # wrench -> T
+    "⚡": "~",  # lightning -> tilde
+    "🔥": "火",  # fire -> yangxi fire radical
+    "💯": "100", # hundred points
+    "🎯": "O",  # target
+    "🎉": "*",  # party popper -> asterisk
+    "🎊": "*",  # confetti -> asterisk
+    "⭐": "*",  # star
+    "🌟": "*",  # glowing star
+    "💫": "*",  # dizzy star
+    "✨": "*",  # sparkles
     
     # Numbers
-    "1️⃣": "1",
-    "2️⃣": "2", 
-    "3️⃣": "3",
-    "4️⃣": "4",
-    "5️⃣": "5",
-    "6️⃣": "6",
-    "7️⃣": "7",
-    "8️⃣": "8",
-    "9️⃣": "9",
-    "0️⃣": "0",
+    "1️⃣": "1", "2️⃣": "2", "3️⃣": "3", "4️⃣": "4", "5️⃣": "5",
+    "6️⃣": "6", "7️⃣": "7", "8️⃣": "8", "9️⃣": "9", "0️⃣": "0",
     
     # Letters
-    "🅰️": "A",
-    "🅱️": "B",
-    "🆎": "AB",
-    "🆑": "CL",
-    "🆒": "COOL",
-    "🆓": "FREE",
-    "🆔": "ID",
-    "🆕": "NEW",
-    "🆖": "NG",
-    "🆗": "OK",
-    "🆘": "SOS",
-    "🆙": "UP",
-    "🆚": "VS",
+    "🅰": "A", "🅱": "B", "🆎": "AB", "🆑": "CL", "🆒": "COOL",
+    "🆓": "FREE", "🆔": "ID", "🆕": "NEW", "🆖": "NG", "🆗": "OK",
+    "🆘": "SOS", "🆙": "UP", "🆚": "VS",
+    
+    # Geometric shapes
+    "⬛": "#", "⬜": "[]", "◼": "#", "◻": "[]", "◾": "#", "◽": "[]",
+    "▪": "#", "▫": "[]", "🔶": "<>", "🔷": "<>", "🔸": "<>", "🔹": "<>",
+    "🔺": "▲", "🔻": "▼", "💠": "<>", "🔘": "O", "🔲": "[]", "🔳": "[]",
+    
+    # Time
+    "⏰": "T",  # alarm clock -> T
+    "⏱": "T",  # stopwatch -> T
+    "⏲": "T",  # timer -> T
+    "⌛": "T",  # hourglass -> T
+    "⏳": "T",  # hourglass flowing -> T
+    "🕐": "12", "🕑": "1", "🕒": "2", "🕓": "3", "🕔": "4",
+    "🕕": "5", "🕖": "6", "🕗": "7", "🕘": "8", "🕙": "9",
+    "🕚": "10", "🕛": "11",
+    
+    # Weather
+    "☀": "O", "🌞": "O", "🌝": "O", "🌛": "O", "🌜": "O",
+    "🌚": "O", "🌙": "O", "🌘": "O", "🌗": "O", "🌖": "O",
+    "🌕": "O", "🌔": "O", "🌓": "O", "🌒": "O", "🌑": "O",
+    "☁": "~", "⛅": "~", "⛈": "~", "🌤": "~", "🌥": "~",
+    "🌦": "~", "🌧": "~", "⛆": "~", "🌨": "~", "🌩": "~",
+    "🌪": "~", "🌫": "~", "🌬": "~", "☂": "|", "⛱": "|",
+    "☔": "~", "⚡": "~", "❄": "*", "☃": "*", "⛄": "*",
+    "☄": "*", "🌈": "~",
 }
+
+
+class SmartSubstitutionBuilder:
+    """Intelligent substitution builder that creates substitutions based on Unicode properties."""
+    
+    def __init__(self):
+        self.cache: Dict[str, Optional[str]] = {}
+        self.color_enabled = False
+        
+    def enable_color(self, enabled: bool = True):
+        """Enable or disable color output."""
+        self.color_enabled = enabled
+        
+    def get_unicode_name(self, char: str) -> str:
+        """Get the Unicode name for a character."""
+        try:
+            # For multi-character emojis, use the first character
+            if len(char) > 1:
+                return unicodedata.name(char[0])
+            return unicodedata.name(char)
+        except ValueError:
+            return ""
+    
+    def extract_color_from_name(self, name: str) -> Optional[str]:
+        """Extract color information from Unicode name."""
+        name_lower = name.lower()
+        
+        # Direct color matches
+        color_keywords = {
+            "red": "red",
+            "green": "green", 
+            "yellow": "yellow",
+            "blue": "blue",
+            "purple": "magenta",
+            "orange": "yellow",  # closest ANSI color
+            "black": "white",    # use white for visibility
+            "white": "white",
+            "brown": "yellow",   # closest ANSI color
+        }
+        
+        for keyword, color in color_keywords.items():
+            if keyword in name_lower:
+                return color
+                
+        # Context-based color inference
+        if any(word in name_lower for word in ["check", "correct", "success", "ok"]):
+            return "green"
+        elif any(word in name_lower for word in ["cross", "error", "wrong", "x"]):
+            return "red"
+        elif any(word in name_lower for word in ["warning", "caution", "alert"]):
+            return "yellow"
+        elif any(word in name_lower for word in ["info", "information", "question"]):
+            return "blue"
+        
+        return None
+    
+    def get_base_symbol(self, char: str, name: str) -> str:
+        """Get the base symbol for an emoji based on its Unicode name."""
+        name_lower = name.lower()
+        
+        # Check if we have a predefined substitution
+        if char in BASE_SUBSTITUTIONS:
+            return BASE_SUBSTITUTIONS[char]
+        
+        # Shape-based substitutions
+        if "circle" in name_lower:
+            return "O"
+        elif "square" in name_lower:
+            return "[]"
+        elif "triangle" in name_lower:
+            if "up" in name_lower or "pointing up" in name_lower:
+                return "▲"
+            elif "down" in name_lower or "pointing down" in name_lower:
+                return "▼"
+            else:
+                return "▲"
+        elif "diamond" in name_lower:
+            return "<>"
+        elif "star" in name_lower:
+            return "*"
+        elif "heart" in name_lower:
+            return "<3"
+        elif "arrow" in name_lower:
+            if "right" in name_lower:
+                return "→"
+            elif "left" in name_lower:
+                return "←"
+            elif "up" in name_lower:
+                return "↑"
+            elif "down" in name_lower:
+                return "↓"
+            else:
+                return "→"
+        elif "cross" in name_lower or " x " in name_lower:
+            return "✗"
+        elif "check" in name_lower or "tick" in name_lower:
+            return "✓"
+        elif "warning" in name_lower:
+            return "!"
+        elif "information" in name_lower:
+            return "i"
+        elif "question" in name_lower:
+            return "?"
+        elif "exclamation" in name_lower:
+            return "!"
+        elif "plus" in name_lower or "add" in name_lower:
+            return "+"
+        elif "minus" in name_lower or "subtract" in name_lower:
+            return "-"
+        elif "multiply" in name_lower:
+            return "×"
+        elif "divide" in name_lower:
+            return "÷"
+        elif "equals" in name_lower:
+            return "="
+        elif "percent" in name_lower:
+            return "%"
+        elif "dollar" in name_lower:
+            return "$"
+        elif "euro" in name_lower:
+            return "€"
+        elif "pound" in name_lower:
+            return "£"
+        elif "yen" in name_lower:
+            return "¥"
+        elif "copyright" in name_lower:
+            return "©"
+        elif "registered" in name_lower:
+            return "®"
+        elif "trademark" in name_lower:
+            return "™"
+        elif "degree" in name_lower:
+            return "°"
+        elif "music" in name_lower or "note" in name_lower:
+            return "♪"
+        elif "phone" in name_lower or "telephone" in name_lower:
+            return "[]"
+        elif "mail" in name_lower or "envelope" in name_lower:
+            return "[]"
+        elif "clock" in name_lower or "time" in name_lower:
+            return "T"
+        elif "sun" in name_lower:
+            return "O"
+        elif "moon" in name_lower:
+            return "O"
+        elif "cloud" in name_lower:
+            return "~"
+        elif "rain" in name_lower:
+            return "~"
+        elif "snow" in name_lower:
+            return "*"
+        elif "fire" in name_lower:
+            return "*"
+        elif "water" in name_lower:
+            return "~"
+        elif "lightning" in name_lower or "bolt" in name_lower:
+            return "~"
+        elif "earth" in name_lower or "globe" in name_lower:
+            return "O"
+        elif "mountain" in name_lower:
+            return "▲"
+        elif "tree" in name_lower:
+            return "T"
+        elif "flower" in name_lower:
+            return "*"
+        elif "building" in name_lower:
+            return "[]"
+        elif "home" in name_lower or "house" in name_lower:
+            return "[]"
+        elif "car" in name_lower or "automobile" in name_lower:
+            return "[]"
+        elif "plane" in name_lower or "airplane" in name_lower:
+            return ">"
+        elif "ship" in name_lower or "boat" in name_lower:
+            return ">"
+        elif "train" in name_lower:
+            return "="
+        elif "bicycle" in name_lower or "bike" in name_lower:
+            return "O"
+        elif "bus" in name_lower:
+            return "[]"
+        elif "rocket" in name_lower:
+            return "↑"
+        elif "gear" in name_lower or "settings" in name_lower:
+            return "O"
+        elif "hammer" in name_lower:
+            return "T"
+        elif "wrench" in name_lower:
+            return "T"
+        elif "scissors" in name_lower:
+            return "X"
+        elif "key" in name_lower:
+            return "[]"
+        elif "lock" in name_lower:
+            return "[]"
+        elif "shield" in name_lower:
+            return "[]"
+        elif "gun" in name_lower or "pistol" in name_lower:
+            return ">"
+        elif "bow" in name_lower and "arrow" in name_lower:
+            return ">"
+        elif "sword" in name_lower:
+            return "|"
+        elif "axe" in name_lower:
+            return "T"
+        elif "pick" in name_lower:
+            return "T"
+        elif "balance scale" in name_lower:
+            return "="
+        elif "chains" in name_lower:
+            return "~"
+        elif "coffin" in name_lower:
+            return "[]"
+        elif "funeral urn" in name_lower:
+            return "[]"
+        elif "atom" in name_lower:
+            return "O"
+        elif "no entry" in name_lower:
+            return "X"
+        elif "radioactive" in name_lower:
+            return "!"
+        elif "biohazard" in name_lower:
+            return "!"
+        elif "snowman" in name_lower:
+            return "*"
+        elif "umbrella" in name_lower:
+            return "|"
+        elif "keyboard" in name_lower:
+            return "[]"
+        elif "chess" in name_lower:
+            return "[]"
+        
+        # Default fallback for any remaining cases
+        return "?"
+    
+    def build_substitution(self, emoji: str) -> Optional[str]:
+        """Build a smart substitution for an emoji character."""
+        if emoji in self.cache:
+            return self.cache[emoji]
+        
+        # Check for emoticon mapping first
+        if emoji in EMOTICON_MAPPING:
+            substitution = EMOTICON_MAPPING[emoji]
+            self.cache[emoji] = substitution
+            return substitution
+        
+        # Get Unicode name
+        name = self.get_unicode_name(emoji)
+        if not name:
+            self.cache[emoji] = None
+            return None
+        
+        # Get base symbol
+        base_symbol = self.get_base_symbol(emoji, name)
+        
+        # Apply color if enabled
+        if self.color_enabled:
+            color = self.extract_color_from_name(name)
+            if color and color in COLOR_MAPPING:
+                substitution = f"{COLOR_MAPPING[color]}{base_symbol}{COLOR_MAPPING['reset']}"
+            else:
+                substitution = base_symbol
+        else:
+            substitution = base_symbol
+        
+        self.cache[emoji] = substitution
+        return substitution
 
 
 class EmojiSubstitution:
     """Handles emoji detection and substitution with Unicode alternatives."""
     
-    def __init__(self, substitute: bool = False, interactive: bool = False, label: bool = False):
+    def __init__(self, substitute: bool = False, interactive: bool = False, label: bool = False, color: bool = False):
         self.substitute = substitute
         self.interactive = interactive
         self.label = label
+        self.color = color
         self.substitutions_made: List[Tuple[str, str, str]] = []  # (emoji, unicode, file_path)
         self.emojis_found: Dict[str, List[str]] = {}  # emoji -> list of files
+        
+        # Initialize smart substitution builder
+        self.builder = SmartSubstitutionBuilder()
+        self.builder.enable_color(color)
     
     def find_emoji_substitution(self, emoji: str) -> Optional[str]:
-        """Find a Unicode substitution for an emoji."""
-        return UNICODE_SUBSTITUTIONS.get(emoji)
+        """Find a Unicode substitution for an emoji using smart builder."""
+        return self.builder.build_substitution(emoji)
     
     def process_content(self, content: str, file_path: str) -> str:
         """Process content and either substitute or collect emojis."""
@@ -170,7 +521,13 @@ class EmojiSubstitution:
     def _substitute_emojis(self, content: str, file_path: str) -> str:
         """Replace emojis with Unicode alternatives or label/remove."""
         new_content = content
+        
+        # Find all emojis in the content
         emojis = EMOJI_PATTERN.findall(content)
+        
+        # Sort by length (longest first) to avoid partial replacements
+        emojis.sort(key=len, reverse=True)
+        
         for emoji in emojis:
             substitution = self.find_emoji_substitution(emoji)
             if substitution and substitution != emoji:
@@ -178,13 +535,19 @@ class EmojiSubstitution:
                 self.substitutions_made.append((emoji, substitution, file_path))
                 print(f"\033[32m✓ Replaced '{emoji}' with '{substitution}' in {file_path}\033[0m")
             elif self.label:
-                label = f"[emoji:U+{ord(emoji):04X}]"
+                # Create label using Unicode codepoint
+                if len(emoji) == 1:
+                    label = f"[emoji:U+{ord(emoji):04X}]"
+                else:
+                    # For multi-character emojis, use first character's codepoint
+                    label = f"[emoji:U+{ord(emoji[0]):04X}]"
                 new_content = new_content.replace(emoji, label)
                 self.substitutions_made.append((emoji, label, file_path))
                 print(f"\033[36mℹ Labeled '{emoji}' as '{label}' in {file_path}\033[0m")
             else:
                 new_content = new_content.replace(emoji, "")
                 print(f"\033[33m⚠ Removed '{emoji}' (no substitution/label) from {file_path}\033[0m")
+        
         return new_content
     
     def _collect_emojis(self, content: str, file_path: str) -> str:
@@ -202,7 +565,7 @@ class EmojiSubstitution:
     def show_substitution_summary(self):
         """Show summary of substitutions made."""
         if self.substitutions_made:
-            print(f"\n\033[34m📊 Substitution Summary:\033[0m")
+            print(f"\n\033[34m■ Substitution Summary:\033[0m")
             for emoji, substitution, file_path in self.substitutions_made:
                 print(f"   '{emoji}' → '{substitution}' in {file_path}")
     
@@ -211,7 +574,7 @@ class EmojiSubstitution:
         if not self.emojis_found:
             return
         
-        print(f"\n\033[34m📋 Emojis Found (Potential Substitutions):\033[0m")
+        print(f"\n\033[34m■ Emojis Found (Smart Substitutions):\033[0m")
         for emoji, files in self.emojis_found.items():
             substitution = self.find_emoji_substitution(emoji)
             if substitution:
@@ -220,7 +583,7 @@ class EmojiSubstitution:
                 print(f"\n\033[33m⚠ '{emoji}' → (no substitution available)\033[0m")
             
             for file_path in files:
-                print(f"   📄 {file_path}")
+                print(f"   □ {file_path}")
 
 
 def remove_emojis_from_file(file_path: Path, substitution_handler: EmojiSubstitution) -> bool:
@@ -294,6 +657,33 @@ def clean_directory(root: Path, verbose: bool = False, substitution_handler: Opt
     return files_processed, files_modified
 
 
+def validate_no_emoji_in_substitutions():
+    """Validate that no emoji characters are used in any substitutions."""
+    # Use the same emoji pattern as defined globally
+    emoji_pattern = EMOJI_PATTERN
+    
+    violations = []
+    
+    # Check BASE_SUBSTITUTIONS
+    for emoji, substitution in BASE_SUBSTITUTIONS.items():
+        if emoji_pattern.search(substitution):
+            violations.append(f"BASE_SUBSTITUTIONS['{emoji}'] = '{substitution}' contains emoji characters")
+    
+    # Check EMOTICON_MAPPING
+    for emoji, substitution in EMOTICON_MAPPING.items():
+        if emoji_pattern.search(substitution):
+            violations.append(f"EMOTICON_MAPPING['{emoji}'] = '{substitution}' contains emoji characters")
+    
+    if violations:
+        print("VALIDATION FAILED: Emoji characters found in substitutions:")
+        for violation in violations:
+            print(f"  - {violation}")
+        return False
+    else:
+        print("VALIDATION PASSED: No emoji characters found in substitutions")
+        return True
+
+
 def main():
     """Main entry point."""
     parser = argparse.ArgumentParser(
@@ -301,19 +691,21 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  emoji-nuker /path/to/project           # Remove all emojis
+  emoji-nuker /path/to/project           # Remove all emojis from directory
+  emoji-nuker myfile.py                  # Remove emojis from single file
   emoji-nuker .                          # Clean current directory
   emoji-nuker --verbose /path            # Verbose output
-  emoji-nuker --substitute /path         # Replace emojis with Unicode alternatives
+  emoji-nuker --substitute /path         # Replace emojis with smart Unicode alternatives
+  emoji-nuker --substitute --color /path # Replace with colored Unicode alternatives
   emoji-nuker --interactive /path        # Show emoji suggestions without modifying files
   emoji-nuker --label /path              # Replace emojis with a label like [emoji:U+XXXX] if no substitution exists
         """
     )
     
     parser.add_argument(
-        "directory",
+        "path",
         type=str,
-        help="Path to the root of the project directory"
+        help="Path to a file or directory to process"
     )
     
     parser.add_argument(
@@ -325,7 +717,7 @@ Examples:
     parser.add_argument(
         "--substitute", "-s",
         action="store_true",
-        help="Replace emojis with Unicode alternatives instead of removing them"
+        help="Replace emojis with smart Unicode alternatives instead of removing them"
     )
     
     parser.add_argument(
@@ -341,6 +733,12 @@ Examples:
     )
     
     parser.add_argument(
+        "--color", "-c",
+        action="store_true",
+        help="Use colored Unicode substitutions (ANSI color codes)"
+    )
+    
+    parser.add_argument(
         "--version",
         action="version",
         version="emoji-nuker 1.0.0"
@@ -348,26 +746,34 @@ Examples:
     
     args = parser.parse_args()
     
-    # Validate directory
-    root_path = Path(args.directory)
-    if not root_path.exists():
-        print(f"\033[31m✗ Error: Directory does not exist: {root_path}\033[0m")
-        sys.exit(1)
-    
-    if not root_path.is_dir():
-        print(f"\033[31m✗ Error: Not a directory: {root_path}\033[0m")
+    # Validate path
+    target_path = Path(args.path)
+    if not target_path.exists():
+        print(f"\033[31m✗ Error: Path does not exist: {target_path}\033[0m")
         sys.exit(1)
     
     # Create substitution handler
     substitution_handler = EmojiSubstitution(
         substitute=args.substitute,
         interactive=args.interactive,
-        label=args.label
+        label=args.label,
+        color=args.color
     )
     
     # Process files
     try:
-        files_processed, files_modified = clean_directory(root_path, args.verbose, substitution_handler)
+        if target_path.is_file():
+            # Process single file
+            if target_path.suffix in CODE_EXTENSIONS:
+                files_processed = 1
+                files_modified = 1 if remove_emojis_from_file(target_path, substitution_handler) else 0
+            else:
+                print(f"\033[33m⚠ Skipping unsupported file type: {target_path}\033[0m")
+                files_processed = 0
+                files_modified = 0
+        else:
+            # Process directory
+            files_processed, files_modified = clean_directory(target_path, args.verbose, substitution_handler)
         
         print(f"\nSummary:")
         print(f"   Files processed: {files_processed}")

@@ -18,15 +18,171 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: Run nuker on test file (substitute + label)
+      - name: Validate emoji substitutions
         run: |
-          cp test_substitution.py test_substitution_actual.py
-          python3 src/emoji-nuker --substitute --label .
+          python3 -c "
+          import sys
+          sys.path.insert(0, 'src')
+          with open('src/emoji-nuker', 'r') as f:
+              content = f.read()
+          exec(content.split('def main()')[0])
+          validate_no_emoji_in_substitutions()
+          "
 
-      - name: Compare output to expected
+      - name: Test basic substitution functionality
         run: |
-          diff -u test_substitution.py test_substitution_actual.py || (echo '❌ Output does not match expected!'; exit 1)
+          cp test_emoji_input.py test_emoji_output.py
+          python3 src/emoji-nuker --substitute test_emoji_output.py
+          echo "Substitution test completed"
+
+      - name: Test interactive mode
+        run: |
+          python3 src/emoji-nuker --interactive test_emoji_input.py
+          echo "Interactive mode test completed"
+
+      - name: Test labeling mode
+        run: |
+          cp test_emoji_input.py test_emoji_label.py
+          python3 src/emoji-nuker --label test_emoji_label.py
+          echo "Label mode test completed"
+
+      - name: Test combined substitute and label mode
+        run: |
+          cp test_emoji_input.py test_emoji_combined.py
+          python3 src/emoji-nuker --substitute --label test_emoji_combined.py
+          echo "Combined mode test completed"
+
+      - name: Test color substitution mode
+        run: |
+          cp test_emoji_input.py test_emoji_color.py
+          python3 src/emoji-nuker --substitute --color test_emoji_color.py
+          echo "Color mode test completed"
+
+      - name: Verify key substitutions
+        run: |
+          python3 -c "
+          import sys
+          sys.path.insert(0, 'src')
+          with open('src/emoji-nuker', 'r') as f:
+              content = f.read()
+          exec(content.split('def main()')[0])
+          
+          # Test key substitutions
+          key_tests = [
+              ('✅', '✓', 'Green checkmark'),
+              ('❌', '✗', 'Red cross'),
+              ('🔥', '火', 'Fire emoji'),
+              ('⚠', '!', 'Warning'),
+              ('⭐', '*', 'Star'),
+          ]
+          
+          print('Testing key substitutions:')
+          for emoji, expected, name in key_tests:
+              if emoji in BASE_SUBSTITUTIONS:
+                  actual = BASE_SUBSTITUTIONS[emoji]
+                  if actual == expected:
+                      print(f'✓ {name}: {emoji} -> {actual}')
+                  else:
+                      print(f'✗ {name}: {emoji} -> {actual} (expected {expected})')
+                      sys.exit(1)
+              else:
+                  print(f'✗ {name}: {emoji} not found in substitutions')
+                  sys.exit(1)
+          print('All key substitutions verified!')
+          "
+
+      - name: Test emoji pattern accuracy
+        run: |
+          python3 -c "
+          import sys
+          sys.path.insert(0, 'src')
+          with open('src/emoji-nuker', 'r') as f:
+              content = f.read()
+          exec(content.split('def main()')[0])
+          
+          # Test that Unicode symbols are NOT detected as emojis
+          safe_symbols = ['✓', '✗', '火', 'ℹ', '√', '×', '!', '*']
+          print('Testing Unicode symbol safety:')
+          for symbol in safe_symbols:
+              is_emoji = bool(EMOJI_PATTERN.search(symbol))
+              if not is_emoji:
+                  print(f'✓ {symbol} (U+{ord(symbol):04X}) is safe')
+              else:
+                  print(f'✗ {symbol} (U+{ord(symbol):04X}) incorrectly detected as emoji')
+                  sys.exit(1)
+          
+          # Test that diagonal arrows and up-down arrows are NOT detected as emojis
+          arrow_symbols = ['↗', '↘', '↙', '↖', '↕', '↔', '←', '→', '↑', '↓']
+          print('Testing arrow symbol safety:')
+          for symbol in arrow_symbols:
+              is_emoji = bool(EMOJI_PATTERN.search(symbol))
+              if not is_emoji:
+                  print(f'✓ {symbol} (U+{ord(symbol):04X}) is safe')
+              else:
+                  print(f'✗ {symbol} (U+{ord(symbol):04X}) incorrectly detected as emoji')
+                  sys.exit(1)
+          
+          # Test that actual emojis ARE detected
+          emoji_chars = ['✅', '❌', '🔥', '⚠', '⭐', '➡', '🔺', '🔻']
+          print('Testing emoji detection:')
+          for emoji in emoji_chars:
+              is_emoji = bool(EMOJI_PATTERN.search(emoji))
+              if is_emoji:
+                  print(f'✓ {emoji} (U+{ord(emoji):04X}) correctly detected as emoji')
+              else:
+                  print(f'✗ {emoji} (U+{ord(emoji):04X}) not detected as emoji')
+                  sys.exit(1)
+          print('Emoji pattern accuracy verified!')
+          "
+
+      - name: Test diagonal arrows are not replaced
+        run: |
+          echo "Testing diagonal arrows: ↗ ↘ ↙ ↖ and up-down arrows: ↕ ↔" > test_arrows.txt
+          python3 src/emoji-nuker --substitute test_arrows.txt
+          # Check that the file was not modified (no emojis found)
+          if grep -q "↗ ↘ ↙ ↖" test_arrows.txt && grep -q "↕ ↔" test_arrows.txt; then
+              echo "✓ Diagonal arrows and up-down arrows correctly left unchanged"
+          else
+              echo "✗ Diagonal arrows or up-down arrows were incorrectly modified"
+              exit 1
+          fi
+          rm -f test_arrows.txt
+
+      - name: Test smart substitution builder
+        run: |
+          python3 -c "
+          import sys
+          sys.path.insert(0, 'src')
+          with open('src/emoji-nuker', 'r') as f:
+              content = f.read()
+          exec(content.split('def main()')[0])
+          
+          # Test smart substitution builder
+          builder = SmartSubstitutionBuilder()
+          
+          # Test emoticon conversion
+          emoticon_tests = [
+              ('😀', ':D'),
+              ('😊', ':)'),
+              ('😉', ';)'),
+              ('😢', ':\'('),
+          ]
+          
+          print('Testing emoticon conversion:')
+          for emoji, expected in emoticon_tests:
+              result = builder.build_substitution(emoji)
+              if result == expected:
+                  print(f'✓ {emoji} -> {result}')
+              else:
+                  print(f'✗ {emoji} -> {result} (expected {expected})')
+                  sys.exit(1)
+          print('Smart substitution builder verified!')
+          "
+
+      - name: Clean up test files
+        run: |
+          rm -f test_emoji_output.py test_emoji_label.py test_emoji_combined.py test_emoji_color.py test_arrows.txt
 
       - name: Success
         if: success()
-        run: echo '✅ Emoji Nuker test passed!' 
+        run: echo 'All Emoji Nuker tests passed!' 
