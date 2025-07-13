@@ -14,6 +14,42 @@ validation of emoji characters.
 import re
 from typing import Set, Dict, List, Tuple
 
+# Characters that existed as Unicode symbols before emoji designation
+# These should be treated as Unicode symbols, not emojis, for replacement purposes
+PRE_EMOJI_UNICODE_SYMBOLS = {
+    # ASCII characters that later became part of emoji sequences
+    0x002A,  # * - Asterisk (ASCII → keycap emoji component)
+    0x0023,  # # - Hash/Number Sign (ASCII → keycap emoji component)
+    
+    # Unicode symbols that later became emojis
+    0x2139,  # ℹ - Information Source (Unicode 3.0 → Emoji 1.0)
+    0x2122,  # ™ - Trade Mark Sign (Unicode 1.1 → Emoji 1.0)
+    0x00A9,  # © - Copyright Sign (Unicode 1.1 → Emoji 1.0)
+    0x00AE,  # ® - Registered Sign (Unicode 1.1 → Emoji 1.0)
+    
+    # Arrow symbols that are Unicode symbols, not emojis
+    0x2190,  # ← - Leftwards Arrow
+    0x2191,  # ↑ - Upwards Arrow  
+    0x2192,  # → - Rightwards Arrow
+    0x2193,  # ↓ - Downwards Arrow
+    0x2194,  # ↔ - Left Right Arrow
+    0x2195,  # ↕ - Up Down Arrow
+    0x2196,  # ↖ - North West Arrow
+    0x2197,  # ↗ - North East Arrow
+    0x2198,  # ↘ - South East Arrow
+    0x2199,  # ↙ - South West Arrow
+    
+    # Mathematical and technical symbols
+    0x2713,  # ✓ - Check Mark
+    0x2717,  # ✗ - Ballot X
+    0x221A,  # √ - Square Root
+    0x00D7,  # × - Multiplication Sign
+    0x0021,  # ! - Exclamation Mark
+    
+    # Additional Unicode symbols that should not be treated as emojis
+    0x706B,  # 火 - CJK Unified Ideograph (fire)
+}
+
 # Unicode Emoji Ranges (from Unicode TR51)
 # These are the primary ranges where emoji characters are defined
 EMOJI_RANGES = [
@@ -79,7 +115,7 @@ ADDITIONAL_EMOJI_CHARS = {
     0x203C, 0x2049,
     
     # Letterlike Symbols block (selective)
-    0x2122, 0x2139,
+    # Note: 0x2122 (™) moved to PRE_EMOJI_UNICODE_SYMBOLS
     
     # Number Forms block (selective)
     0x2160, 0x2161, 0x2162, 0x2163, 0x2164, 0x2165, 0x2166, 0x2167,
@@ -143,8 +179,8 @@ class EmojiLUT:
         # Add additional emoji characters
         emoji_chars.update(ADDITIONAL_EMOJI_CHARS)
         
-        # Add keycap characters
-        emoji_chars.update(KEYCAP_CHARS)
+        # Note: Keycap characters (* and #) are not added to general emoji set
+        # They are only emoji when part of keycap sequences like *️⃣
         
         # Add variation selectors
         emoji_chars.update(VARIATION_SELECTORS)
@@ -168,9 +204,8 @@ class EmojiLUT:
         for char in sorted(ADDITIONAL_EMOJI_CHARS):
             individual_chars.append(f"\\U{char:08X}")
         
-        # Add keycap characters
-        for char in sorted(KEYCAP_CHARS):
-            individual_chars.append(f"\\U{char:08X}")
+        # Note: Keycap characters (* and #) are not added to general emoji pattern
+        # They are only emoji when part of keycap sequences like *️⃣
         
         # Add variation selectors
         for char in sorted(VARIATION_SELECTORS):
@@ -190,6 +225,27 @@ class EmojiLUT:
         if len(char) != 1:
             return False
         return ord(char) in self._emoji_chars
+
+    def is_emoji_for_replacement(self, char: str) -> bool:
+        """
+        Determine if a character should be treated as an emoji for replacement purposes.
+        
+        This implements the historical precedence rule:
+        - Characters that existed as Unicode symbols before emoji designation 
+          are treated as Unicode symbols, not emojis
+        - Only characters designed as emojis or emoji-first characters are replaced
+        """
+        if len(char) != 1:
+            return False
+            
+        codepoint = ord(char)
+        
+        # If it's a pre-emoji Unicode symbol, treat as Unicode symbol
+        if codepoint in PRE_EMOJI_UNICODE_SYMBOLS:
+            return False
+        
+        # Otherwise, check if it's in the emoji ranges/sets
+        return codepoint in self._emoji_chars
     
     def is_emoji_sequence(self, text: str) -> bool:
         """Check if a text string contains emoji characters."""
@@ -254,6 +310,17 @@ EMOJI_LUT = EmojiLUT()
 def is_emoji(text: str) -> bool:
     """Check if text contains emoji characters."""
     return EMOJI_LUT.is_emoji_sequence(text)
+
+def is_emoji_for_replacement(char: str) -> bool:
+    """
+    Determine if a character should be treated as an emoji for replacement purposes.
+    
+    This implements the historical precedence rule:
+    - Characters that existed as Unicode symbols before emoji designation 
+      are treated as Unicode symbols, not emojis
+    - Only characters designed as emojis or emoji-first characters are replaced
+    """
+    return EMOJI_LUT.is_emoji_for_replacement(char)
 
 def find_emoji(text: str) -> List[str]:
     """Find all emoji in text."""

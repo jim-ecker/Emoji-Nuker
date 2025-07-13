@@ -18,7 +18,7 @@ import re
 import sys
 import argparse
 import unicodedata
-from emoji_lut import EMOJI_LUT, get_emoji_pattern
+from emoji_lut import EMOJI_LUT, get_emoji_pattern, is_emoji_for_replacement
 from pathlib import Path
 from typing import Set, Pattern, Dict, List, Tuple, Optional
 
@@ -518,12 +518,31 @@ class EmojiSubstitution:
         else:
             return self._collect_emojis(content, file_path)
     
+    def _find_emojis_for_replacement(self, content: str) -> List[str]:
+        """Find all emojis in content that should be replaced using historical precedence."""
+        emojis = []
+        i = 0
+        while i < len(content):
+            char = content[i]
+            if is_emoji_for_replacement(char):
+                # Check for multi-character emoji sequences
+                emoji_seq = char
+                j = i + 1
+                while j < len(content) and is_emoji_for_replacement(content[j]):
+                    emoji_seq += content[j]
+                    j += 1
+                emojis.append(emoji_seq)
+                i = j
+            else:
+                i += 1
+        return emojis
+
     def _substitute_emojis(self, content: str, file_path: str) -> str:
         """Replace emojis with Unicode alternatives or label/remove."""
         new_content = content
         
-        # Find all emojis in the content
-        emojis = EMOJI_PATTERN.findall(content)
+        # Find all emojis in the content using historical precedence
+        emojis = self._find_emojis_for_replacement(content)
         
         # Sort by length (longest first) to avoid partial replacements
         emojis.sort(key=len, reverse=True)
@@ -552,7 +571,7 @@ class EmojiSubstitution:
     
     def _collect_emojis(self, content: str, file_path: str) -> str:
         """Collect emojis for later review without modifying content."""
-        emojis = EMOJI_PATTERN.findall(content)
+        emojis = self._find_emojis_for_replacement(content)
         
         for emoji in emojis:
             if emoji not in self.emojis_found:
@@ -659,20 +678,23 @@ def clean_directory(root: Path, verbose: bool = False, substitution_handler: Opt
 
 def validate_no_emoji_in_substitutions():
     """Validate that no emoji characters are used in any substitutions."""
-    # Use the same emoji pattern as defined globally
-    emoji_pattern = EMOJI_PATTERN
-    
     violations = []
     
     # Check BASE_SUBSTITUTIONS
     for emoji, substitution in BASE_SUBSTITUTIONS.items():
-        if emoji_pattern.search(substitution):
-            violations.append(f"BASE_SUBSTITUTIONS['{emoji}'] = '{substitution}' contains emoji characters")
+        # Check each character in the substitution
+        for char in substitution:
+            if is_emoji_for_replacement(char):
+                violations.append(f"BASE_SUBSTITUTIONS['{emoji}'] = '{substitution}' contains emoji character '{char}'")
+                break
     
     # Check EMOTICON_MAPPING
     for emoji, substitution in EMOTICON_MAPPING.items():
-        if emoji_pattern.search(substitution):
-            violations.append(f"EMOTICON_MAPPING['{emoji}'] = '{substitution}' contains emoji characters")
+        # Check each character in the substitution
+        for char in substitution:
+            if is_emoji_for_replacement(char):
+                violations.append(f"EMOTICON_MAPPING['{emoji}'] = '{substitution}' contains emoji character '{char}'")
+                break
     
     if violations:
         print("VALIDATION FAILED: Emoji characters found in substitutions:")

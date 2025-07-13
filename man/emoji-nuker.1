@@ -6,24 +6,60 @@ emoji-nuker \- Remove emojis from code files in a project directory
 .SH SYNOPSIS
 .B emoji-nuker
 [\fB\-v\fR|\fB\-\-verbose\fR]
+[\fB\-s\fR|\fB\-\-substitute\fR]
+[\fB\-i\fR|\fB\-\-interactive\fR]
+[\fB\-l\fR|\fB\-\-label\fR]
+[\fB\-c\fR|\fB\-\-color\fR]
 [\fB\-\-version\fR]
 [\fB\-h\fR|\fB\-\-help\fR]
-\fIdirectory\fR
+\fIpath\fR
 
 .SH DESCRIPTION
 .B emoji-nuker
 is a lightweight utility that scans your project directory and removes all emojis
-from code files. It's especially useful for cleaning up emoji-laden comments,
-log messages, or commit artifacts in codebases before production or archiving.
+from code files. It implements a historical precedence architecture that respects
+the original Unicode designation of characters, solving the set theory problem of
+characters being both Unicode symbols and emojis.
 
 The tool recursively scans the specified directory and processes files with the
 following extensions: .py, .js, .ts, .cpp, .c, .h, .java, .rb, .go, .rs,
 .html, .css, .json, .yml, .yaml, .sh, .md, .txt
 
+.SH HISTORICAL PRECEDENCE ARCHITECTURE
+.B emoji-nuker
+implements a historical precedence architecture where characters that existed as
+Unicode symbols before emoji designation are treated as Unicode symbols, not emojis.
+
+.B Pre-emoji Unicode symbols (preserved):
+* # ℹ ™ © ® ← → ↑ ↓ ↗ ↘ ↙ ↖ ↕ ↔ ✓ ✗ √ × ! 火
+
+.B Emoji-first characters (replaced):
+✅ ❌ 🔥 ⚠ ⭐ ➡ 🔺 🔻 🚀 😀 😊 😉 😢 1️⃣ 🅰
+
 .SH OPTIONS
 .TP
 .BR \-v ", " \-\-verbose
 Enable verbose output, showing scanning progress and supported extensions.
+
+.TP
+.BR \-s ", " \-\-substitute
+Replace emojis with smart Unicode alternatives instead of removing them.
+Uses semantic mapping to convert emojis to appropriate Unicode symbols.
+
+.TP
+.BR \-i ", " \-\-interactive
+Show emoji suggestions without modifying files. Preview what would be
+substituted without making actual changes.
+
+.TP
+.BR \-l ", " \-\-label
+Replace emojis with descriptive labels like [emoji:U+1F600] if no
+substitution is available.
+
+.TP
+.BR \-c ", " \-\-color
+Use colored Unicode substitutions with ANSI color codes. Must be used
+with --substitute option.
 
 .TP
 .BR \-\-version
@@ -35,8 +71,35 @@ Show help message and exit.
 
 .SH ARGUMENTS
 .TP
-.I directory
-Path to the root of the project directory to scan for emojis.
+.I path
+Path to a file or directory to process. If a directory is specified,
+all supported files will be processed recursively.
+
+.SH PROCESSING MODES
+.B emoji-nuker
+supports several processing modes that can be combined:
+
+.TP
+.B Default mode
+Removes all emoji characters from files.
+
+.TP
+.B Substitute mode (--substitute)
+Replaces emojis with semantically appropriate Unicode alternatives:
+✅ → ✓, ❌ → ✗, 🔥 → 火, ⚠ → !, ⭐ → *, ➡ → →, 🔺 → ▲, 🔻 → ▼
+
+.TP
+.B Interactive mode (--interactive)
+Shows what emojis would be processed without modifying files.
+
+.TP
+.B Label mode (--label)
+Replaces emojis with descriptive labels like [emoji:U+1F600] when no
+substitution is available.
+
+.TP
+.B Color mode (--color)
+Applies ANSI color codes to Unicode substitutions based on emoji context.
 
 .SH EXAMPLES
 .TP
@@ -51,14 +114,49 @@ Clean all code files in a specific project:
 Clean with verbose output:
 .B emoji-nuker --verbose /path/to/project
 
+.TP
+Replace emojis with Unicode alternatives:
+.B emoji-nuker --substitute /path/to/project
+
+.TP
+Preview substitutions without modifying files:
+.B emoji-nuker --interactive /path/to/project
+
+.TP
+Use substitutions with labels for unknown emojis:
+.B emoji-nuker --substitute --label /path/to/project
+
+.TP
+Apply colored Unicode substitutions:
+.B emoji-nuker --substitute --color /path/to/project
+
+.TP
+Process a single file:
+.B emoji-nuker --substitute myfile.py
+
+.SH SUBSTITUTION EXAMPLES
+.B Historical precedence in action:
+
+Pre-emoji Unicode symbols (preserved):
+  Status: ✓ passed, ✗ failed
+  Arrows: ← → ↑ ↓ ↗ ↘ ↙ ↖ ↕ ↔
+  Math: √ × ! ASCII: * #
+
+Emoji-first characters (replaced):
+  ✅ → ✓ (checkmark)
+  ❌ → ✗ (cross)
+  🔥 → 火 (fire)
+  🚀 → ▲ (rocket)
+  😀 → :D (grinning face)
+
 .SH EXIT STATUS
 .TP
 .B 0
-Success - emojis were removed or no emojis were found.
+Success - emojis were processed or no emojis were found.
 
 .TP
 .B 1
-Error - invalid directory, permission denied, or other error occurred.
+Error - invalid path, permission denied, or other error occurred.
 
 .SH FILES
 .TP
@@ -68,6 +166,20 @@ User installation location (if installed with make install-user)
 .TP
 .B /usr/local/bin/emoji-nuker
 System installation location (if installed with make install)
+
+.TP
+.B ~/.local/share/man/man1/emoji-nuker.1
+User manual page location
+
+.TP
+.B /usr/local/share/man/man1/emoji-nuker.1
+System manual page location
+
+.SH SUPPORTED FILE TYPES
+Programming languages: .py, .js, .ts, .cpp, .c, .h, .java, .rb, .go, .rs
+Web technologies: .html, .css, .json
+Configuration: .yml, .yaml, .sh
+Documentation: .md, .txt
 
 .SH AUTHOR
 Written by the emoji-nuker development team.
@@ -82,4 +194,5 @@ There is NO warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR P
 .SH SEE ALSO
 .BR grep (1),
 .BR find (1),
-.BR sed (1) 
+.BR sed (1),
+.BR unicode (7) 

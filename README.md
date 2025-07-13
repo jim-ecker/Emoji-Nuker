@@ -8,13 +8,102 @@
 - Removes emojis from common source code files:
   - `.py`, `.js`, `.ts`, `.cpp`, `.c`, `.h`, `.java`, `.go`, `.rs`, `.html`, `.css`, `.json`, `.yml`, `.yaml`, `.sh`, `.md`, `.txt`
 - **Smart Unicode Substitution**: Replace emojis with semantically relevant Unicode characters
+- **Historical Precedence Architecture**: Respects the original Unicode designation of characters
 - **Labeling Mode**: Replace emojis with descriptive labels like `[emoji:U+1F600]`
 - **Interactive Mode**: Preview emoji substitutions without modifying files
+- **Color Mode**: Apply colored Unicode substitutions with ANSI color codes
 - Standard Unix/Linux installation via Makefile
 - Proper man page documentation
 - Verbose output option for debugging
 - Clean error handling and progress reporting
 - GitHub Actions CI/CD workflow
+
+## Historical Precedence Architecture
+
+Emoji Nuker implements a **historical precedence architecture** that solves the fundamental set theory problem of characters being both Unicode symbols and emojis. The core principle is:
+
+> **Characters that existed as Unicode symbols before emoji designation are treated as Unicode symbols, not emojis.**
+
+### The Problem
+
+Many characters exist in both Unicode symbol ranges and emoji ranges. For example:
+- `*` (U+002A) is both an ASCII character and part of keycap emoji sequences like `*️⃣`
+- `ℹ` (U+2139) was a Unicode symbol (Unicode 3.0) before becoming an emoji (Emoji 1.0)
+- `→` (U+2192) is a Unicode arrow symbol, while `➡` (U+27A1) is an emoji arrow
+
+### The Solution
+
+The historical precedence architecture uses a `PRE_EMOJI_UNICODE_SYMBOLS` set containing characters that existed as Unicode symbols before emoji designation. The `is_emoji_for_replacement()` function implements this precedence rule:
+
+```python
+def is_emoji_for_replacement(char: str) -> bool:
+    """Check if a character should be treated as an emoji for replacement purposes."""
+    if len(char) != 1:
+        return False
+    
+    codepoint = ord(char)
+    
+    # Historical precedence: if it was a Unicode symbol first, treat it as such
+    if codepoint in PRE_EMOJI_UNICODE_SYMBOLS:
+        return False
+    
+    # Otherwise, check if it's in the emoji ranges
+    return codepoint in emoji_chars
+```
+
+### Pre-Emoji Unicode Symbols
+
+The following characters are **preserved** (not replaced) because they existed as Unicode symbols before emoji designation:
+
+| Symbol | Unicode | Description | Historical Context |
+|--------|---------|-------------|-------------------|
+| `*` | U+002A | Asterisk | ASCII → keycap emoji component |
+| `#` | U+0023 | Hash/Number Sign | ASCII → keycap emoji component |
+| `ℹ` | U+2139 | Information Source | Unicode 3.0 → Emoji 1.0 |
+| `™` | U+2122 | Trade Mark Sign | Unicode 1.1 → Emoji 1.0 |
+| `©` | U+00A9 | Copyright Sign | Unicode 1.1 → Emoji 1.0 |
+| `®` | U+00AE | Registered Sign | Unicode 1.1 → Emoji 1.0 |
+| `←` | U+2190 | Leftwards Arrow | Unicode 1.1 |
+| `→` | U+2192 | Rightwards Arrow | Unicode 1.1 |
+| `↑` | U+2191 | Upwards Arrow | Unicode 1.1 |
+| `↓` | U+2193 | Downwards Arrow | Unicode 1.1 |
+| `↗` | U+2197 | North East Arrow | Unicode 1.1 |
+| `↘` | U+2198 | South East Arrow | Unicode 1.1 |
+| `↙` | U+2199 | South West Arrow | Unicode 1.1 |
+| `↖` | U+2196 | North West Arrow | Unicode 1.1 |
+| `↕` | U+2195 | Up Down Arrow | Unicode 1.1 |
+| `↔` | U+2194 | Left Right Arrow | Unicode 1.1 |
+| `✓` | U+2713 | Check Mark | Unicode 1.1 |
+| `✗` | U+2717 | Ballot X | Unicode 1.1 |
+| `√` | U+221A | Square Root | Unicode 1.1 |
+| `×` | U+00D7 | Multiplication Sign | Unicode 1.1 |
+| `!` | U+0021 | Exclamation Mark | ASCII |
+| `火` | U+706B | CJK Fire Radical | Unicode 1.1 |
+
+### Emoji-First Characters
+
+Only characters that were **emoji-first** (designed as emojis from the start) are replaced:
+
+| Emoji | Unicode | Replacement | Description |
+|-------|---------|-------------|-------------|
+| `✅` | U+2705 | `✓` | Green checkmark → Unicode checkmark |
+| `❌` | U+274C | `✗` | Red cross → Unicode cross mark |
+| `🔥` | U+1F525 | `火` | Fire emoji → CJK fire radical |
+| `⚠` | U+26A0 | `!` | Warning sign → Exclamation mark |
+| `⭐` | U+2B50 | `*` | Star → Asterisk |
+| `➡` | U+27A1 | `→` | Right arrow emoji → Unicode arrow |
+| `🔺` | U+1F53A | `▲` | Red triangle up → Unicode triangle |
+| `🔻` | U+1F53B | `▼` | Red triangle down → Unicode triangle |
+| `🚀` | U+1F680 | `▲` | Rocket → Up arrow |
+| `😀` | U+1F600 | `:D` | Grinning face → Emoticon |
+
+### Why This Matters
+
+This architecture ensures:
+1. **Semantic Consistency**: Characters retain their original meaning
+2. **Tool Compatibility**: emoji-nuker's own output uses safe Unicode symbols
+3. **Predictable Behavior**: Clear rules for what gets replaced
+4. **Unicode Respect**: Honors the historical development of Unicode
 
 ## Installation
 
@@ -72,32 +161,11 @@ emoji-nuker --substitute /path/to/project
 emoji-nuker --substitute myfile.py
 ```
 
-# Examples of substitutions:
-# 🚀 → ↑ (rocket to up arrow)
-# ✅ → ✓ (green checkmark to Unicode checkmark)
-# ❌ → ✗ (red cross to Unicode cross mark)
-# 🔥 → 火 (fire emoji to CJK fire radical)
-# ⚠ → ! (warning to exclamation mark)
-# ⭐ → * (star to asterisk)
-# ➡ → → (right arrow emoji to Unicode arrow)
-# 🔺 → ▲ (red triangle up to Unicode triangle)
-# 🔻 → ▼ (red triangle down to Unicode triangle)
-# 1️⃣ → 1 (number)
-# 🅰 → A (letter)
-# Note: Diagonal arrows (↗ ↘ ↙ ↖) and up-down arrows (↕ ↔) are NOT replaced
-```
-
 ### Labeling Mode
 ```bash
 # Replace emojis with descriptive labels
 emoji-nuker --label /path/to/project
 emoji-nuker --label myfile.py
-```
-
-# Examples:
-# 😀 → [emoji:U+1F600]
-# 🚀 → [emoji:U+1F680]
-# ✅ → [emoji:U+2705]
 ```
 
 ### Color Substitution Mode
@@ -107,20 +175,16 @@ emoji-nuker --substitute --color /path/to/project
 emoji-nuker --substitute --color myfile.py
 ```
 
-# Examples with color:
-# ✅ → ✓ (green checkmark)
-# ❌ → ✗ (red cross mark)
-# ⚠ → ! (yellow warning)
-# 🔥 → 火 (red fire symbol)
+### Interactive Mode
+```bash
+# Preview what would be substituted (no file changes)
+emoji-nuker --interactive /path/to/project
 ```
 
 ### Combined Modes
 ```bash
 # Use substitutions where available, label the rest
 emoji-nuker --substitute --label /path/to/project
-
-# Preview what would be substituted (no file changes)
-emoji-nuker --interactive /path/to/project
 ```
 
 ### Other Options
@@ -130,6 +194,59 @@ emoji-nuker --help
 
 # Show version
 emoji-nuker --version
+```
+
+## Substitution Examples
+
+### Historical Precedence in Action
+
+**Pre-emoji Unicode symbols (preserved):**
+```python
+# These are NOT replaced (historical precedence)
+print("Status: ✓ passed, ✗ failed")
+print("Direction: ← → ↑ ↓ ↗ ↘ ↙ ↖ ↕ ↔")
+print("Math: √ × ! Info: ℹ Trademark: ™")
+print("Copyright: © Registered: ® Fire: 火")
+print("ASCII: * #")
+```
+
+**Emoji-first characters (replaced):**
+```python
+# Before (emoji-first characters)
+print("Status: ✅ Success, ❌ Failed")
+print("Symbols: 🔥 Fire, ⚠ Warning, ⭐ Star")
+print("Arrow: ➡ Right")
+print("Triangles: 🔺 Up, 🔻 Down")
+print("Rocket: 🚀")
+
+# After (with --substitute)
+print("Status: ✓ Success, ✗ Failed")
+print("Symbols: 火 Fire, ! Warning, * Star")
+print("Arrow: → Right")
+print("Triangles: ▲ Up, ▼ Down")
+print("Rocket: ▲")
+```
+
+### Emoticon Conversion
+
+Face emojis are converted to text emoticons:
+```python
+# Before
+print("Faces: 😀 😊 😉 😢")
+
+# After
+print("Faces: :D :) ;) :'(")
+```
+
+### Labeling Mode
+
+When substitution isn't available, emojis are labeled:
+```python
+# Before
+print("Complex emoji: 🧑‍💻")
+
+# After (with --label)
+print("Complex emoji: [emoji:U+1F9D1]")
 ```
 
 ## Uninstallation
@@ -151,9 +268,25 @@ sudo make uninstall
 make all
 ```
 
-### Testing
+### Comprehensive Testing
 ```bash
 make test
+```
+
+The Makefile includes a comprehensive test suite with 8 test categories:
+
+1. **Basic Functionality**: Module loading and script validation
+2. **Historical Precedence Architecture**: Tests all 22 pre-emoji Unicode symbols
+3. **Emoji Detection**: Validates emoji-first character detection
+4. **Command Line Options**: Tests all options (--help, --version, --verbose, --substitute, --interactive, --label, --color)
+5. **File Processing Modes**: Tests all processing modes with real files
+6. **Substitution Validation**: Ensures no emoji characters in substitutions
+7. **File Type Support**: Tests multiple file extensions (.py, .js, .cpp, .md)
+8. **Directory Processing**: Validates recursive directory processing
+
+### Testing CI Workflow Locally
+```bash
+make test-ci
 ```
 
 ### Checking Dependencies
@@ -166,16 +299,49 @@ make check-deps
 make help
 ```
 
-### Testing
+All available targets:
+- `all` - Build the application (default)
+- `install` - Install system-wide (requires sudo)
+- `install-user` - Install to user directory
+- `uninstall` - Uninstall system-wide (requires sudo)
+- `uninstall-user` - Uninstall from user directory
+- `test` - Run comprehensive tests
+- `test-ci` - Test CI workflow locally
+- `check-deps` - Check dependencies
+- `clean` - Clean build artifacts
+- `help` - Show help message
 
-The project includes comprehensive testing through GitHub Actions:
+## Testing
 
-- **Validation Tests**: Ensure no emoji characters are used in substitutions
-- **Substitution Tests**: Verify key emoji-to-Unicode mappings work correctly
-- **Pattern Tests**: Confirm emoji detection accuracy and Unicode symbol safety
-- **Arrow Tests**: Verify diagonal arrows and up-down arrows are not replaced
-- **Mode Tests**: Test all operation modes (substitute, label, interactive, color)
-- **Smart Builder Tests**: Validate emoticon conversion and context-aware substitutions
+The project includes comprehensive testing at multiple levels:
+
+### Local Testing (Makefile)
+- **Historical Precedence Validation**: Tests all 22 pre-emoji Unicode symbols are preserved
+- **Emoji Detection Tests**: Validates emoji-first character detection for both single and multi-character emojis
+- **Command Line Coverage**: Tests all command line options and their functionality
+- **File Processing Tests**: Validates all processing modes (substitute, interactive, label, color, verbose)
+- **File Type Coverage**: Tests supported file extensions (.py, .js, .cpp, .md, etc.)
+- **Directory Processing**: Validates recursive directory scanning
+- **Substitution Validation**: Ensures no emoji characters are used in substitutions
+- **Architecture Validation**: Confirms historical precedence logic works correctly
+
+### GitHub Actions (CI/CD)
+- **Historical Precedence Architecture**: Comprehensive validation of the core architecture
+- **Emoji Detection Tests**: Verifies emoji-first characters are correctly identified
+- **Substitution Tests**: Validates key emoji-to-Unicode mappings
+- **Mode Tests**: Tests all operation modes (substitute, label, interactive, color)
+- **Smart Builder Tests**: Validates emoticon conversion and context-aware substitutions
+- **Architecture Tests**: Confirms the historical precedence logic works correctly
+
+### Test Coverage Summary
+✓ Historical precedence architecture  
+✓ Pre-emoji Unicode symbol preservation  
+✓ Emoji-first character detection  
+✓ All command line options  
+✓ All processing modes  
+✓ Substitution validation  
+✓ File type support  
+✓ Directory processing
 
 ## Supported File Types
 
@@ -203,7 +369,7 @@ error = "❌ Permission denied"
 ### After (with --substitute)
 ```python
 # This is a test file with emojis ?
-print("Hello World! ↑")
+print("Hello World! ▲")
 
 def test_function():
     return "Testing emoji removal! *"
@@ -232,13 +398,13 @@ error = "[emoji:U+274C] Permission denied"
 emoji-nuker/
 ├── Makefile              # Build and installation system
 ├── src/
-│   └── emoji-nuker       # Main Python script
+│   ├── emoji-nuker       # Main Python script
+│   └── emoji_lut.py      # Emoji lookup table with historical precedence
 ├── man/
 │   └── emoji-nuker.1     # Manual page
 ├── .github/
 │   └── workflows/
 │       └── test.yml      # CI/CD workflow
-├── test_emoji_input.py   # Test file for CI validation
 ├── README.md             # This file
 ├── LICENSE               # MIT License
 └── .gitignore            # Git ignore patterns
@@ -248,46 +414,7 @@ emoji-nuker/
 
 The emoji-nuker follows a strict principle: **emoji characters should never be replaced with other emoji characters**. Instead, it substitutes emojis with appropriate Unicode symbols that are outside the emoji ranges.
 
-### Key Distinctions:
-- **Emoji Characters**: Characters officially designated as emojis (e.g., ✅, ❌, 🔥)
-- **Unicode Symbols**: Regular Unicode characters outside emoji ranges (e.g., ✓, ✗, 火)
-
-This ensures that substitutions don't introduce new emoji characters while maintaining semantic meaning.
-
-## Unicode Substitution Examples
-
-The tool includes mappings for common emojis using safe Unicode symbols:
-
-| Emoji | Unicode Substitution | Category | Notes |
-|-------|---------------------|----------|-------|
-| 🚀 | ↑ | Symbols | Rocket to Unicode up arrow (U+2191) |
-| ✅ | ✓ | Status | Green checkmark to Unicode checkmark (U+2713) |
-| ❌ | ✗ | Status | Red cross to Unicode cross mark (U+2717) |
-| 🔥 | 火 | Symbols | Fire emoji to CJK fire radical (U+706B) |
-| ⚠ | ! | Status | Warning to exclamation mark |
-| ⭐ | * | Symbols | Star to asterisk |
-| ➡ | → | Arrows | Right arrow emoji to Unicode arrow (U+2192) |
-| 🔺 | ▲ | Triangles | Red triangle up to Unicode triangle (U+25B2) |
-| 🔻 | ▼ | Triangles | Red triangle down to Unicode triangle (U+25BC) |
-| 1️⃣ | 1 | Numbers | Number emojis to digits |
-| 🅰 | A | Letters | Letter emojis to letters |
-| 💯 | 100 | Numbers | Hundred points to "100" |
-| 😀 | :D | Emoticons | Smileys to text emoticons |
-| 😊 | :) | Emoticons | Happy face to smile |
-| 😉 | ;) | Emoticons | Winking face to wink |
-
-### Important: Arrow Symbol Distinction
-
-The tool correctly distinguishes between emoji characters and regular Unicode symbols:
-
-**Unicode Symbols (NOT replaced):**
-- Diagonal arrows: ↗ ↘ ↙ ↖ (U+2197, U+2198, U+2199, U+2196)
-- Up-down arrows: ↕ ↔ (U+2195, U+2194)  
-- Regular arrows: ← → ↑ ↓ (U+2190, U+2192, U+2191, U+2193)
-
-**Emoji Characters (replaced):**
-- Right arrow emoji: ➡ → → (U+27A1)
-- Triangle emojis: 🔺 → ▲, 🔻 → ▼ (U+1F53A, U+1F53B)
+The **historical precedence architecture** ensures that characters are treated according to their original Unicode designation, solving the set theory problem of characters being both Unicode symbols and emojis.
 
 ## Why Emoji Nuker?
 
