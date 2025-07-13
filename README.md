@@ -110,7 +110,7 @@ The tool processes files with the following extensions:
 ### Before
 ```python
 # This is a test file with emojis 
-print("Hello World! ")
+print("Hello World! 👋")
 
 def test_function():
     return "Testing emoji removal! "
@@ -141,7 +141,7 @@ emoji-nuker/
 
 ## Why Emoji Nuker?
 
-Because not every production system wants to parse , , or .
+Because not every production system wants to parse 👋, ✅, or 💯.
 
 ## License
 
