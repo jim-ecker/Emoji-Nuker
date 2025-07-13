@@ -18,7 +18,7 @@ import re
 import sys
 import argparse
 from pathlib import Path
-from typing import Set, Pattern
+from typing import Set, Pattern, Dict, List, Tuple, Optional
 
 
 # Supported file extensions
@@ -27,7 +27,7 @@ CODE_EXTENSIONS: Set[str] = {
     ".html", ".css", ".json", ".yml", ".yaml", ".sh", ".md", ".txt"
 }
 
-# Unicode emoji pattern
+# Unicode emoji pattern (including variation selectors)
 EMOJI_PATTERN: Pattern = re.compile(
     "["
     "\U0001F600-\U0001F64F"  # emoticons
@@ -39,16 +39,197 @@ EMOJI_PATTERN: Pattern = re.compile(
     "\U00002600-\U000026FF"  # miscellaneous symbols
     "\U0001FA70-\U0001FAFF"  # symbols and pictographs extended-A
     "\U000025A0-\U000025FF"  # geometric shapes
+    "\U0000FE00-\U0000FE0F"  # variation selectors
+    "\U0001F3FB-\U0001F3FF"  # skin tone modifiers
     "]+", flags=re.UNICODE
 )
 
+# Unicode substitution mapping for common emojis
+UNICODE_SUBSTITUTIONS: Dict[str, str] = {
+    # Success/Status
+    "✅": "✓",  # check mark
+    "❌": "✗",  # ballot x
+    "⚠️": "⚠",  # warning sign
+    "ℹ️": "ℹ",  # information source
+    "🔍": "🔍",  # magnifying glass (keep as is, it's already unicode)
+    "📁": "📁",  # folder (keep as is)
+    "📊": "📊",  # bar chart (keep as is)
+    
+    # Arrows
+    "➡️": "→",  # right arrow
+    "⬅️": "←",  # left arrow
+    "⬆️": "↑",  # up arrow
+    "⬇️": "↓",  # down arrow
+    "🔄": "↻",  # clockwise arrows
+    
+    # Common symbols
+    "🚀": "↑",  # rocket -> up arrow
+    "💡": "💡",  # light bulb (keep as is)
+    "🔧": "🔧",  # wrench (keep as is)
+    "⚡": "⚡",  # high voltage (keep as is)
+    "🔥": "🔥",  # fire (keep as is)
+    "💯": "100",  # hundred points
+    "🎯": "◎",  # bullseye
+    "🎉": "🎉",  # party popper (keep as is)
+    "🎊": "🎊",  # confetti ball (keep as is)
+    
+    # Programming/tech
+    "🐍": "🐍",  # snake (keep as is)
+    "🐱‍💻": "💻",  # cat with laptop -> laptop
+    "🐱‍👤": "👤",  # ninja cat -> person
+    "🐱‍🚀": "🚀",  # astronaut cat -> rocket
+    "💻": "💻",  # laptop (keep as is)
+    "🖥️": "🖥",  # desktop computer
+    "📱": "📱",  # mobile phone (keep as is)
+    "🔗": "🔗",  # link symbol (keep as is)
+    "🔒": "🔒",  # lock (keep as is)
+    "🔓": "🔓",  # unlock (keep as is)
+    
+    # Emotions/expressions
+    "😅": "😅",  # grinning face with sweat (keep as is)
+    "😊": "😊",  # smiling face with smiling eyes (keep as is)
+    "😄": "😄",  # grinning face with smiling eyes (keep as is)
+    "😎": "😎",  # smiling face with sunglasses (keep as is)
+    "🤔": "🤔",  # thinking face (keep as is)
+    "😱": "😱",  # face screaming in fear (keep as is)
+    "😍": "😍",  # smiling face with heart-eyes (keep as is)
+    
+    # Objects
+    "📝": "📝",  # memo (keep as is)
+    "📄": "📄",  # page facing up (keep as is)
+    "📂": "📂",  # open file folder (keep as is)
+    "🗂️": "🗂",  # card index dividers
+    "📌": "📌",  # pushpin (keep as is)
+    "📍": "📍",  # round pushpin (keep as is)
+    "🔖": "🔖",  # bookmark (keep as is)
+    
+    # Time
+    "⏰": "⏰",  # alarm clock (keep as is)
+    "⏱️": "⏱",  # stopwatch
+    "⏲️": "⏲",  # timer clock
+    "🕐": "🕐",  # one o'clock (keep as is)
+    "🕙": "🕙",  # ten o'clock (keep as is)
+    
+    # Weather
+    "☀️": "☀",  # sun
+    "🌙": "🌙",  # new moon (keep as is)
+    "☁️": "☁",  # cloud
+    "🌧️": "🌧",  # cloud with rain
+    "⚡": "⚡",  # high voltage (keep as is)
+    
+    # Numbers
+    "1️⃣": "1",
+    "2️⃣": "2", 
+    "3️⃣": "3",
+    "4️⃣": "4",
+    "5️⃣": "5",
+    "6️⃣": "6",
+    "7️⃣": "7",
+    "8️⃣": "8",
+    "9️⃣": "9",
+    "0️⃣": "0",
+    
+    # Letters
+    "🅰️": "A",
+    "🅱️": "B",
+    "🆎": "AB",
+    "🆑": "CL",
+    "🆒": "COOL",
+    "🆓": "FREE",
+    "🆔": "ID",
+    "🆕": "NEW",
+    "🆖": "NG",
+    "🆗": "OK",
+    "🆘": "SOS",
+    "🆙": "UP",
+    "🆚": "VS",
+}
 
-def remove_emojis_from_file(file_path: Path) -> bool:
+
+class EmojiSubstitution:
+    """Handles emoji detection and substitution with Unicode alternatives."""
+    
+    def __init__(self, substitute: bool = False, interactive: bool = False, label: bool = False):
+        self.substitute = substitute
+        self.interactive = interactive
+        self.label = label
+        self.substitutions_made: List[Tuple[str, str, str]] = []  # (emoji, unicode, file_path)
+        self.emojis_found: Dict[str, List[str]] = {}  # emoji -> list of files
+    
+    def find_emoji_substitution(self, emoji: str) -> Optional[str]:
+        """Find a Unicode substitution for an emoji."""
+        return UNICODE_SUBSTITUTIONS.get(emoji)
+    
+    def process_content(self, content: str, file_path: str) -> str:
+        """Process content and either substitute or collect emojis."""
+        if self.substitute:
+            return self._substitute_emojis(content, file_path)
+        else:
+            return self._collect_emojis(content, file_path)
+    
+    def _substitute_emojis(self, content: str, file_path: str) -> str:
+        """Replace emojis with Unicode alternatives or label/remove."""
+        new_content = content
+        emojis = EMOJI_PATTERN.findall(content)
+        for emoji in emojis:
+            substitution = self.find_emoji_substitution(emoji)
+            if substitution and substitution != emoji:
+                new_content = new_content.replace(emoji, substitution)
+                self.substitutions_made.append((emoji, substitution, file_path))
+                print(f"\033[32m✓ Replaced '{emoji}' with '{substitution}' in {file_path}\033[0m")
+            elif self.label:
+                label = f"[emoji:U+{ord(emoji):04X}]"
+                new_content = new_content.replace(emoji, label)
+                self.substitutions_made.append((emoji, label, file_path))
+                print(f"\033[36mℹ Labeled '{emoji}' as '{label}' in {file_path}\033[0m")
+            else:
+                new_content = new_content.replace(emoji, "")
+                print(f"\033[33m⚠ Removed '{emoji}' (no substitution/label) from {file_path}\033[0m")
+        return new_content
+    
+    def _collect_emojis(self, content: str, file_path: str) -> str:
+        """Collect emojis for later review without modifying content."""
+        emojis = EMOJI_PATTERN.findall(content)
+        
+        for emoji in emojis:
+            if emoji not in self.emojis_found:
+                self.emojis_found[emoji] = []
+            if file_path not in self.emojis_found[emoji]:
+                self.emojis_found[emoji].append(file_path)
+        
+        return content
+    
+    def show_substitution_summary(self):
+        """Show summary of substitutions made."""
+        if self.substitutions_made:
+            print(f"\n\033[34m📊 Substitution Summary:\033[0m")
+            for emoji, substitution, file_path in self.substitutions_made:
+                print(f"   '{emoji}' → '{substitution}' in {file_path}")
+    
+    def show_emoji_suggestions(self):
+        """Show emojis found with potential substitutions."""
+        if not self.emojis_found:
+            return
+        
+        print(f"\n\033[34m📋 Emojis Found (Potential Substitutions):\033[0m")
+        for emoji, files in self.emojis_found.items():
+            substitution = self.find_emoji_substitution(emoji)
+            if substitution:
+                print(f"\n\033[32m✓ '{emoji}' → '{substitution}'\033[0m")
+            else:
+                print(f"\n\033[33m⚠ '{emoji}' → (no substitution available)\033[0m")
+            
+            for file_path in files:
+                print(f"   📄 {file_path}")
+
+
+def remove_emojis_from_file(file_path: Path, substitution_handler: EmojiSubstitution) -> bool:
     """
     Remove emojis from a single file.
     
     Args:
         file_path: Path to the file to process
+        substitution_handler: Handler for emoji substitution logic
         
     Returns:
         True if the file was modified, False otherwise
@@ -58,8 +239,8 @@ def remove_emojis_from_file(file_path: Path) -> bool:
         with file_path.open("r", encoding="utf-8") as f:
             content = f.read()
         
-        # Remove emojis
-        new_content = EMOJI_PATTERN.sub("", content)
+        # Process content based on substitution mode
+        new_content = substitution_handler.process_content(content, str(file_path))
         
         # Only write if content changed
         if content != new_content:
@@ -82,17 +263,21 @@ def remove_emojis_from_file(file_path: Path) -> bool:
         return False
 
 
-def clean_directory(root: Path, verbose: bool = False) -> tuple[int, int]:
+def clean_directory(root: Path, verbose: bool = False, substitution_handler: Optional[EmojiSubstitution] = None) -> tuple[int, int]:
     """
     Recursively clean all code files in a directory.
     
     Args:
         root: Root directory to scan
         verbose: Enable verbose output
+        substitution_handler: Handler for emoji substitution logic
         
     Returns:
         Tuple of (files_processed, files_modified)
     """
+    if substitution_handler is None:
+        substitution_handler = EmojiSubstitution()
+    
     files_processed = 0
     files_modified = 0
     
@@ -103,7 +288,7 @@ def clean_directory(root: Path, verbose: bool = False) -> tuple[int, int]:
     for path in root.rglob("*"):
         if path.is_file() and path.suffix in CODE_EXTENSIONS:
             files_processed += 1
-            if remove_emojis_from_file(path):
+            if remove_emojis_from_file(path, substitution_handler):
                 files_modified += 1
     
     return files_processed, files_modified
@@ -116,9 +301,12 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  emoji-nuker /path/to/project     # Clean all code files in project
-  emoji-nuker .                    # Clean current directory
-  emoji-nuker --verbose /path      # Verbose output
+  emoji-nuker /path/to/project           # Remove all emojis
+  emoji-nuker .                          # Clean current directory
+  emoji-nuker --verbose /path            # Verbose output
+  emoji-nuker --substitute /path         # Replace emojis with Unicode alternatives
+  emoji-nuker --interactive /path        # Show emoji suggestions without modifying files
+  emoji-nuker --label /path              # Replace emojis with a label like [emoji:U+XXXX] if no substitution exists
         """
     )
     
@@ -132,6 +320,24 @@ Examples:
         "--verbose", "-v",
         action="store_true",
         help="Enable verbose output"
+    )
+    
+    parser.add_argument(
+        "--substitute", "-s",
+        action="store_true",
+        help="Replace emojis with Unicode alternatives instead of removing them"
+    )
+    
+    parser.add_argument(
+        "--interactive", "-i",
+        action="store_true",
+        help="Show emoji suggestions without modifying files"
+    )
+    
+    parser.add_argument(
+        "--label", "-l",
+        action="store_true",
+        help="Replace emojis with a label like [emoji:U+XXXX] if no substitution exists"
     )
     
     parser.add_argument(
@@ -152,18 +358,31 @@ Examples:
         print(f"\033[31m✗ Error: Not a directory: {root_path}\033[0m")
         sys.exit(1)
     
+    # Create substitution handler
+    substitution_handler = EmojiSubstitution(
+        substitute=args.substitute,
+        interactive=args.interactive,
+        label=args.label
+    )
+    
     # Process files
     try:
-        files_processed, files_modified = clean_directory(root_path, args.verbose)
+        files_processed, files_modified = clean_directory(root_path, args.verbose, substitution_handler)
         
         print(f"\nSummary:")
         print(f"   Files processed: {files_processed}")
         print(f"   Files modified: {files_modified}")
         
-        if files_modified > 0:
-            print(f"\033[32m✓ Successfully removed emojis from {files_modified} files!\033[0m")
+        # Show appropriate summary based on mode
+        if args.substitute:
+            substitution_handler.show_substitution_summary()
+        elif args.interactive:
+            substitution_handler.show_emoji_suggestions()
         else:
-            print("\033[34mℹ No files were modified.\033[0m")
+            if files_modified > 0:
+                print(f"\033[32m✓ Successfully removed emojis from {files_modified} files!\033[0m")
+            else:
+                print("\033[34mℹ No files were modified.\033[0m")
             
     except KeyboardInterrupt:
         print("\n\033[33m⚠ Operation cancelled by user\033[0m")

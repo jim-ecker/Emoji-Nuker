@@ -1,0 +1,32 @@
+name: Emoji Nuker Tests
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Run nuker on test file (substitute + label)
+        run: |
+          cp test_substitution.py test_substitution_actual.py
+          python3 src/emoji-nuker --substitute --label .
+
+      - name: Compare output to expected
+        run: |
+          diff -u test_substitution.py test_substitution_actual.py || (echo '❌ Output does not match expected!'; exit 1)
+
+      - name: Success
+        if: success()
+        run: echo '✅ Emoji Nuker test passed!' 
