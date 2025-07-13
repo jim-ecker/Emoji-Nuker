@@ -209,9 +209,6 @@ class EmojiLUT:
         for char in sorted(ADDITIONAL_EMOJI_CHARS):
             individual_chars.append(f"\\U{char:08X}")
         
-        # Note: Keycap characters (* and #) are not added to general emoji pattern
-        # They are only emoji when part of keycap sequences like *️⃣
-        
         # Add variation selectors
         for char in sorted(VARIATION_SELECTORS):
             individual_chars.append(f"\\U{char:08X}")
@@ -219,11 +216,17 @@ class EmojiLUT:
         # Add ZWJ
         individual_chars.append(f"\\U{ZWJ:08X}")
         
-        # Combine ranges and individual characters
+        # Combine ranges and individual characters for regular emoji
         pattern_parts = ranges + individual_chars
-        pattern = "[" + "".join(pattern_parts) + "]+"
+        regular_emoji_pattern = "[" + "".join(pattern_parts) + "]+"
         
-        return re.compile(pattern, re.UNICODE)
+        # Keycap sequence pattern: [0-9*#] + optional variation selector + combining enclosing keycap
+        keycap_pattern = r"[0-9*#]\uFE0F?\u20E3"
+        
+        # Combine both patterns with alternation
+        combined_pattern = f"(?:{regular_emoji_pattern}|{keycap_pattern})"
+        
+        return re.compile(combined_pattern, re.UNICODE)
     
     def is_emoji_char(self, char: str) -> bool:
         """Check if a single character is an emoji character."""
@@ -239,18 +242,28 @@ class EmojiLUT:
         - Characters that existed as Unicode symbols before emoji designation 
           are treated as Unicode symbols, not emojis
         - Only characters designed as emojis or emoji-first characters are replaced
+        - Keycap sequences (like 1️⃣) are treated as emojis for replacement
         """
-        if len(char) != 1:
-            return False
+        if len(char) == 1:
+            # Single character logic
+            codepoint = ord(char)
             
-        codepoint = ord(char)
-        
-        # If it's a pre-emoji Unicode symbol, treat as Unicode symbol
-        if codepoint in PRE_EMOJI_UNICODE_SYMBOLS:
-            return False
-        
-        # Otherwise, check if it's in the emoji ranges/sets
-        return codepoint in self._emoji_chars
+            # If it's a pre-emoji Unicode symbol, treat as Unicode symbol
+            if codepoint in PRE_EMOJI_UNICODE_SYMBOLS:
+                return False
+            
+            # Otherwise, check if it's in the emoji ranges/sets
+            return codepoint in self._emoji_chars
+        else:
+            # Multi-character sequence logic
+            # Check if it's a keycap sequence: [0-9*#] + optional variation selector + combining enclosing keycap
+            if len(char) == 3 and char[0] in '0123456789*#' and char[1] == '\uFE0F' and char[2] == '\u20E3':
+                return True
+            elif len(char) == 2 and char[0] in '0123456789*#' and char[1] == '\u20E3':
+                return True
+            
+            # For other multi-character sequences, check if they match the emoji pattern
+            return self.is_emoji_sequence(char)
     
     def is_emoji_sequence(self, text: str) -> bool:
         """Check if a text string contains emoji characters."""

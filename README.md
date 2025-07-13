@@ -110,6 +110,39 @@ Some characters present a unique historical case: they were originally added to 
 
 This maintains the principle that characters designed for emoji-style visual representation should be replaced, while preserving traditional Unicode symbols that have semantic meaning beyond visual representation.
 
+### Special Case: Keycap Sequences - Multi-Character Emoji Detection
+
+Keycap sequences like `1️⃣` present a unique technical challenge for emoji detection systems. These sequences consist of multiple Unicode characters that must be treated as a single emoji unit.
+
+**Structure of Keycap Sequences:**
+- Base character: `1` (U+0031) - Regular ASCII digit
+- Variation selector: `️` (U+FE0F) - Emoji presentation selector  
+- Combining enclosing keycap: `⃣` (U+20E3) - Visual keycap wrapper
+
+**The Detection Challenge:**
+Traditional emoji detection using character-by-character analysis fails because:
+1. The base character `1` is a pre-emoji Unicode symbol (preserved)
+2. Only the variation selector and keycap are in emoji ranges
+3. Simple regex patterns like `[emoji_chars]+` miss the base character
+
+**Solution - Hybrid Pattern Matching:**
+Emoji-nuker uses a sophisticated regex pattern with alternation:
+```regex
+(?:[emoji_chars]+|[0-9*#]\uFE0F?\u20E3)
+```
+
+This pattern matches:
+- **Regular emoji sequences**: Consecutive emoji characters
+- **Keycap sequences**: `[0-9*#]` + optional variation selector + combining keycap
+
+**Replacement Logic:**
+- `1️⃣` → Treated as emoji (replaced)
+- `1` → Treated as pre-emoji Unicode symbol (preserved)
+- `*️⃣` → Treated as emoji (replaced)  
+- `*` → Treated as pre-emoji Unicode symbol (preserved)
+
+**Lesson Learned:** Multi-character emoji sequences require specialized pattern matching that goes beyond simple character-set membership. The historical precedence architecture must be applied at the sequence level, not just the character level.
+
 ### Why This Matters
 
 This architecture ensures:

@@ -278,12 +278,12 @@ jobs:
           python3 -c "
           import sys
           sys.path.insert(0, 'src')
-          from emoji_lut import is_emoji_for_replacement
+          from emoji_lut import is_emoji_for_replacement, is_emoji
           
           print('=== Comprehensive Emoji Detection Testing ===')
           
           # Test that known emojis are detected
-          known_emojis = ['😀', '🚀', '✅', '❌', '🔥', '⚠', '⭐', '➡', '🔺', '🔻', '1️⃣', '🅰']
+          known_emojis = ['😀', '🚀', '✅', '❌', '🔥', '⚠', '⭐', '➡', '🔺', '🔻', '1️⃣', '🅰', '🅱']
           print('Testing emoji detection:')
           for emoji in known_emojis:
               if is_emoji_for_replacement(emoji):
@@ -305,6 +305,99 @@ jobs:
           print('✓ Comprehensive emoji detection tests passed!')
           "
 
+      - name: Test keycap sequence handling
+        run: |
+          python3 -c "
+          import sys
+          sys.path.insert(0, 'src')
+          from emoji_lut import is_emoji, is_emoji_for_replacement, find_emoji
+          
+          print('=== Keycap Sequence Testing ===')
+          
+          # Test all keycap sequences
+          keycap_sequences = ['0️⃣', '1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '*️⃣', '#️⃣']
+          print('Testing keycap sequence detection:')
+          for keycap in keycap_sequences:
+              if is_emoji(keycap) and is_emoji_for_replacement(keycap):
+                  print(f'✓ {keycap} correctly detected as emoji sequence')
+              else:
+                  print(f'✗ {keycap} not properly detected as emoji sequence')
+                  sys.exit(1)
+          
+          # Test that base characters are preserved
+          base_chars = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '*', '#']
+          print('Testing base character preservation:')
+          for base in base_chars:
+              if not is_emoji_for_replacement(base):
+                  print(f'✓ {base} correctly preserved as Unicode symbol')
+              else:
+                  print(f'✗ {base} incorrectly treated as emoji')
+                  sys.exit(1)
+          
+          # Test pattern matching
+          test_text = 'Numbers: 1️⃣ 2️⃣ 3️⃣ and symbols: * # 1 2 3'
+          found_emojis = find_emoji(test_text)
+          expected_emojis = ['1️⃣', '2️⃣', '3️⃣']
+          if set(found_emojis) == set(expected_emojis):
+              print(f'✓ Pattern matching correctly found: {found_emojis}')
+          else:
+              print(f'✗ Pattern matching failed. Found: {found_emojis}, Expected: {expected_emojis}')
+              sys.exit(1)
+          
+          print('✓ Keycap sequence tests passed!')
+          "
+
+      - name: Test command line options
+        run: |
+          echo "=== Command Line Options Testing ==="
+          
+          # Test help option
+          echo "Testing --help option..."
+          python3 src/emoji-nuker --help > /dev/null
+          echo "✓ --help option works"
+          
+          # Test version option
+          echo "Testing --version option..."
+          python3 src/emoji-nuker --version > /dev/null
+          echo "✓ --version option works"
+          
+          # Test verbose option
+          echo "Testing --verbose option..."
+          echo "print('Test 😀 emoji')" > test_verbose.py
+          python3 src/emoji-nuker --verbose --substitute test_verbose.py > /dev/null
+          echo "✓ --verbose option works"
+          rm -f test_verbose.py
+
+      - name: Test file type support
+        run: |
+          echo "=== File Type Support Testing ==="
+          
+          # Test different file extensions
+          extensions=("py" "js" "cpp" "md" "txt")
+          for ext in "${extensions[@]}"; do
+              echo "print('Test 😀 emoji')" > "test_file.$ext"
+              python3 src/emoji-nuker --substitute "test_file.$ext" > /dev/null
+              echo "✓ .$ext files supported"
+              rm -f "test_file.$ext"
+          done
+
+      - name: Test directory processing
+        run: |
+          echo "=== Directory Processing Testing ==="
+          
+          # Create test directory structure
+          mkdir -p test_dir/subdir
+          echo "print('Test 😀 emoji')" > test_dir/test1.py
+          echo "console.log('Test 🚀 rocket')" > test_dir/test2.js
+          echo "# Test ✅ checkmark" > test_dir/subdir/test3.md
+          
+          # Test directory processing
+          python3 src/emoji-nuker --substitute test_dir > /dev/null
+          echo "✓ Directory processing works"
+          
+          # Cleanup
+          rm -rf test_dir
+
       - name: Clean up test files
         run: |
           rm -f test_emoji_input.py test_emoji_output.py test_emoji_label.py test_emoji_combined.py test_emoji_color.py test_precedence_output.py
@@ -318,6 +411,10 @@ jobs:
           echo '✓ Historical precedence architecture validated'
           echo '✓ Pre-emoji Unicode symbols preserved'
           echo '✓ Emoji-first characters correctly replaced'
+          echo '✓ Keycap sequence handling verified'
           echo '✓ All operation modes tested'
+          echo '✓ Command line options validated'
+          echo '✓ File type support confirmed'
+          echo '✓ Directory processing verified'
           echo '✓ Smart substitution builder verified'
           echo '✓ Comprehensive emoji detection validated' 
