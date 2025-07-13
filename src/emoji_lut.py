@@ -124,6 +124,11 @@ ADDITIONAL_EMOJI_CHARS = {
     # Enclosed Alphanumerics block (selective)
     0x24C2,
     
+    # Enclosed Alphanumeric Supplement block (selective)
+    0x1F170, 0x1F171, 0x1F17E, 0x1F17F, 0x1F18E, 0x1F191, 0x1F192,
+    0x1F193, 0x1F194, 0x1F195, 0x1F196, 0x1F197, 0x1F198, 0x1F199,
+    0x1F19A,
+    
     # Mathematical Operators block (selective)
     0x2934, 0x2935,
     

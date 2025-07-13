@@ -97,6 +97,19 @@ Only characters that were **emoji-first** (designed as emojis from the start) ar
 | `🚀` | U+1F680 | `▲` | Rocket → Up arrow |
 | `😀` | U+1F600 | `:D` | Grinning face → Emoticon |
 
+### Special Case: Unicode-First Characters That Later Became Emojis
+
+Some characters present a unique historical case: they were originally added to Unicode as regular text characters but later became emojis. These characters are treated as **emojis for replacement** because they were designed as emoji-style visual elements, even though they predate the official emoji standard.
+
+| Character | Unicode | Added to Unicode | Became Emoji | Treatment | Reason |
+|-----------|---------|------------------|--------------|-----------|---------|
+| `🅰` | U+1F170 | Unicode 6.0 (Oct 2010) | Emoji 1.0 (Aug 2015) | **Replaced** | Designed as emoji-style button |
+| `🅱` | U+1F171 | Unicode 6.0 (Oct 2010) | Emoji 1.0 (Aug 2015) | **Replaced** | Designed as emoji-style button |
+
+**Key Distinction**: Unlike true pre-emoji Unicode symbols (like `→` or `*`), these characters were designed from the start as visual, emoji-style elements in the "Enclosed Alphanumeric Supplement" block. They were intended to represent colored buttons and visual indicators, not traditional text symbols. Therefore, they are treated as emojis for replacement purposes despite predating the emoji standard by 5 years.
+
+This maintains the principle that characters designed for emoji-style visual representation should be replaced, while preserving traditional Unicode symbols that have semantic meaning beyond visual representation.
+
 ### Why This Matters
 
 This architecture ensures:
