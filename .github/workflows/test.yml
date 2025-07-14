@@ -81,7 +81,7 @@ jobs:
           python3 -c "
           import sys
           sys.path.insert(0, 'src')
-          with open('src/emoji-nuker', 'r') as f:
+          with open('src/emoji_nuker.py', 'r') as f:
               content = f.read()
           exec(content.split('def main()')[0])
           
@@ -145,7 +145,7 @@ jobs:
       - name: Test historical precedence in substitution mode
         run: |
           cp test_emoji_input.py test_precedence_output.py
-          python3 src/emoji-nuker --substitute test_precedence_output.py
+          python3 src/emoji_nuker.py --substitute test_precedence_output.py
           
           # Verify pre-emoji Unicode symbols were NOT replaced
           echo "Checking that pre-emoji Unicode symbols were preserved..."
@@ -178,30 +178,30 @@ jobs:
       - name: Test basic substitution functionality
         run: |
           cp test_emoji_input.py test_emoji_output.py
-          python3 src/emoji-nuker --substitute test_emoji_output.py
+          python3 src/emoji_nuker.py --substitute test_emoji_output.py
           echo "✓ Basic substitution test completed"
 
       - name: Test interactive mode
         run: |
-          python3 src/emoji-nuker --interactive test_emoji_input.py
+          python3 src/emoji_nuker.py --interactive test_emoji_input.py
           echo "✓ Interactive mode test completed"
 
       - name: Test labeling mode
         run: |
           cp test_emoji_input.py test_emoji_label.py
-          python3 src/emoji-nuker --label test_emoji_label.py
+          python3 src/emoji_nuker.py --label test_emoji_label.py
           echo "✓ Label mode test completed"
 
       - name: Test combined substitute and label mode
         run: |
           cp test_emoji_input.py test_emoji_combined.py
-          python3 src/emoji-nuker --substitute --label test_emoji_combined.py
+          python3 src/emoji_nuker.py --substitute --label test_emoji_combined.py
           echo "✓ Combined mode test completed"
 
       - name: Test color substitution mode
         run: |
           cp test_emoji_input.py test_emoji_color.py
-          python3 src/emoji-nuker --substitute --color test_emoji_color.py
+          python3 src/emoji_nuker.py --substitute --color test_emoji_color.py
           echo "✓ Color mode test completed"
 
       - name: Verify key substitutions
@@ -209,7 +209,7 @@ jobs:
           python3 -c "
           import sys
           sys.path.insert(0, 'src')
-          with open('src/emoji-nuker', 'r') as f:
+          with open('src/emoji_nuker.py', 'r') as f:
               content = f.read()
           exec(content.split('def main()')[0])
           
@@ -246,7 +246,7 @@ jobs:
           python3 -c "
           import sys
           sys.path.insert(0, 'src')
-          with open('src/emoji-nuker', 'r') as f:
+          with open('src/emoji_nuker.py', 'r') as f:
               content = f.read()
           exec(content.split('def main()')[0])
           
@@ -353,18 +353,18 @@ jobs:
           
           # Test help option
           echo "Testing --help option..."
-          python3 src/emoji-nuker --help > /dev/null
+          python3 src/emoji_nuker.py --help > /dev/null
           echo "✓ --help option works"
           
           # Test version option
           echo "Testing --version option..."
-          python3 src/emoji-nuker --version > /dev/null
+          python3 src/emoji_nuker.py --version > /dev/null
           echo "✓ --version option works"
           
           # Test verbose option
           echo "Testing --verbose option..."
           echo "print('Test 😀 emoji')" > test_verbose.py
-          python3 src/emoji-nuker --verbose --substitute test_verbose.py > /dev/null
+          python3 src/emoji_nuker.py --verbose --substitute test_verbose.py > /dev/null
           echo "✓ --verbose option works"
           rm -f test_verbose.py
 
@@ -376,7 +376,7 @@ jobs:
           extensions=("py" "js" "cpp" "md" "txt")
           for ext in "${extensions[@]}"; do
               echo "print('Test 😀 emoji')" > "test_file.$ext"
-              python3 src/emoji-nuker --substitute "test_file.$ext" > /dev/null
+              python3 src/emoji_nuker.py --substitute "test_file.$ext" > /dev/null
               echo "✓ .$ext files supported"
               rm -f "test_file.$ext"
           done
@@ -392,11 +392,113 @@ jobs:
           echo "# Test ✅ checkmark" > test_dir/subdir/test3.md
           
           # Test directory processing
-          python3 src/emoji-nuker --substitute test_dir > /dev/null
+          python3 src/emoji_nuker.py --substitute test_dir > /dev/null
           echo "✓ Directory processing works"
           
           # Cleanup
           rm -rf test_dir
+
+      - name: Test default emoji removal (bug fix)
+        run: |
+          echo "=== Default Emoji Removal Testing ==="
+          
+          # Create test file with emojis
+          echo "# Test file with emojis 🔍 🤖 📊 ✅ 🚀" > test_default_removal.py
+          
+          # Test default behavior (should remove emojis)
+          python3 src/emoji_nuker.py test_default_removal.py
+          
+          # Verify emojis were removed
+          if grep -q "🔍\|🤖\|📊\|✅\|🚀" test_default_removal.py; then
+              echo "✗ Emojis were not removed in default mode"
+              exit 1
+          else
+              echo "✓ Default emoji removal working correctly"
+          fi
+          
+          # Cleanup
+          rm -f test_default_removal.py
+
+      - name: Test Python package installation
+        run: |
+          echo "=== Python Package Installation Testing ==="
+          
+          # Test that setup.py and pyproject.toml are valid
+          python3 -c "import setuptools; print('✓ setuptools available')"
+          
+          # Test setup.py syntax
+          python3 setup.py --help > /dev/null
+          echo "✓ setup.py is valid"
+          
+          # Test pyproject.toml syntax (if toml is available)
+          python3 -c "
+          try:
+              import tomllib
+              with open('pyproject.toml', 'rb') as f:
+                  tomllib.load(f)
+              print('✓ pyproject.toml is valid')
+          except ImportError:
+              print('ℹ tomllib not available, skipping pyproject.toml validation')
+          except Exception as e:
+              print(f'✗ pyproject.toml validation failed: {e}')
+              exit(1)
+          "
+          
+          # Test that the script can be imported as a module
+          python3 -c "
+          import sys
+          sys.path.insert(0, 'src')
+          import emoji_nuker
+          print('✓ emoji_nuker module can be imported')
+          "
+
+      - name: Test Unix-style installation simulation
+        run: |
+          echo "=== Unix-Style Installation Testing ==="
+          
+          # Test that the module import logic works
+          python3 -c "
+          import sys
+          import os
+          
+          # Simulate Unix-style installation paths
+          test_lib_path = '/tmp/test_lib/emoji-nuker'
+          os.makedirs(test_lib_path, exist_ok=True)
+          
+          # Copy the module to test location
+          import shutil
+          shutil.copy('src/emoji_lut.py', test_lib_path + '/emoji_lut.py')
+          
+          # Test the module import logic from the script
+          sys.path.insert(0, test_lib_path)
+          from emoji_lut import is_emoji_for_replacement
+          
+          # Test that it works
+          if is_emoji_for_replacement('😀'):
+              print('✓ Unix-style module import working correctly')
+          else:
+              print('✗ Unix-style module import failed')
+              exit(1)
+          
+          # Cleanup
+          shutil.rmtree('/tmp/test_lib')
+          "
+
+      - name: Test installation script
+        run: |
+          echo "=== Installation Script Testing ==="
+          
+          # Test that install.sh exists and is executable
+          if [ -f "install.sh" ] && [ -x "install.sh" ]; then
+              echo "✓ install.sh exists and is executable"
+          else
+              echo "✗ install.sh missing or not executable"
+              exit 1
+          fi
+          
+          # Test that install.sh has proper syntax
+          bash -n install.sh
+          echo "✓ install.sh has valid bash syntax"
 
       - name: Clean up test files
         run: |
@@ -417,4 +519,8 @@ jobs:
           echo '✓ File type support confirmed'
           echo '✓ Directory processing verified'
           echo '✓ Smart substitution builder verified'
-          echo '✓ Comprehensive emoji detection validated' 
+          echo '✓ Comprehensive emoji detection validated'
+          echo '✓ Default emoji removal bug fixed'
+          echo '✓ Python package installation validated'
+          echo '✓ Unix-style installation validated'
+          echo '✓ Installation script validated' 

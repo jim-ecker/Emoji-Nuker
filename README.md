@@ -153,34 +153,93 @@ This architecture ensures:
 
 ## Installation
 
-### Quick Install (User Directory)
+You have two installation options, both work perfectly:
+
+### Option 1: Python Package Installation (Recommended)
+
+The Python package installation is the most robust method and follows Python best practices:
+
+#### Automatic Installation Script
+```bash
+./install.sh
+```
+
+This script will install emoji-nuker and guide you through setting up your PATH if needed.
+
+#### Manual Python Package Installation
+```bash
+# Install as a Python package
+make install-python
+# or directly with pip3:
+pip3 install --user .
+```
+
+After installation, you may need to add the Python user scripts directory to your PATH:
+- **macOS**: `~/Library/Python/X.Y/bin` (where X.Y is your Python version)
+- **Linux**: `~/.local/bin`
+
+Add this line to your shell profile (`~/.zshrc`, `~/.bashrc`, or `~/.profile`):
+```bash
+export PATH="$PATH:$HOME/Library/Python/3.X/bin"  # macOS
+# or
+export PATH="$PATH:$HOME/.local/bin"  # Linux
+```
+
+#### Uninstall Python Package
+```bash
+make uninstall-python
+# or directly:
+pip3 uninstall emoji-nuker
+```
+
+### Option 2: Unix-Style Installation
+
+The traditional Unix tool installation method, following standard Unix/Linux conventions:
+
+#### Quick Install (User Directory)
 ```bash
 make install-user
 ```
 
-This installs the tool to `~/.local/bin/emoji-nuker` and adds the man page to `~/.local/share/man/man1/`.
+This installs the tool to `~/.local/bin/emoji-nuker` and the Python module to `~/.local/lib/emoji-nuker/`.
 
-### System-wide Install (Requires sudo)
+#### System-wide Install (Requires sudo)
 ```bash
 sudo make install
 ```
 
-This installs the tool to `/usr/local/bin/emoji-nuker` and adds the man page to `/usr/local/share/man/man1/`.
+This installs the tool to `/usr/local/bin/emoji-nuker` and the Python module to `/usr/local/lib/emoji-nuker/`.
 
-### Manual Install
-If you prefer to install manually:
+#### Uninstall Unix-Style Installation
+```bash
+make uninstall-user    # For user directory installation
+make uninstall         # For system-wide installation (requires sudo)
+```
 
+#### Quick Install (User Directory)
+```bash
+make install-user
+```
+
+#### System-wide Install (Requires sudo)
+```bash
+sudo make install
+```
+
+#### Manual Install (Advanced Users)
 ```bash
 # Make the script executable
-chmod +x src/emoji-nuker
+chmod +x src/emoji_nuker.py
 
-# Copy to your bin directory
-cp src/emoji-nuker ~/.local/bin/
-# or for system-wide: sudo cp src/emoji-nuker /usr/local/bin/
+# Create directories
+mkdir -p ~/.local/bin ~/.local/lib/emoji-nuker ~/.local/share/man/man1
 
-# Install man page
+# Copy files
+cp src/emoji_nuker.py ~/.local/bin/emoji-nuker
+cp src/emoji_lut.py ~/.local/lib/emoji-nuker/
 cp man/emoji-nuker.1 ~/.local/share/man/man1/
-# or for system-wide: sudo cp man/emoji-nuker.1 /usr/local/share/man/man1/
+
+# Make sure ~/.local/bin is in your PATH
 ```
 
 ## Usage

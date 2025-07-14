@@ -1,0 +1,46 @@
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "emoji-nuker"
+version = "1.0.0"
+description = "Remove emojis from code files in a project directory"
+readme = "README.md"
+license = {file = "LICENSE"}
+authors = [
+    {name = "Your Name"},
+]
+keywords = ["emoji", "unicode", "text-processing", "code-cleanup", "development-tools"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.6",
+    "Programming Language :: Python :: 3.7",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Tools",
+    "Topic :: Text Processing",
+    "Topic :: Utilities",
+]
+requires-python = ">=3.6"
+
+[project.urls]
+"Source" = "https://github.com/your-username/emoji-nuker"
+"Bug Reports" = "https://github.com/your-username/emoji-nuker/issues"
+
+[project.scripts]
+emoji-nuker = "emoji_nuker:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+py-modules = ["emoji_lut", "emoji_nuker"]
+
+[tool.setuptools.packages.find]
+where = ["src"] 

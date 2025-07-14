@@ -14,7 +14,7 @@ VERSION = 1.0.0
 DESCRIPTION = Remove emojis from code files in a project directory
 
 # Files
-SCRIPT_FILE = src/emoji-nuker
+SCRIPT_FILE = src/emoji_nuker.py
 MAN_FILE = man/emoji-nuker.1
 README_FILE = README.md
 LICENSE_FILE = LICENSE
@@ -22,11 +22,30 @@ LICENSE_FILE = LICENSE
 # Default target
 all: $(SCRIPT_FILE)
 
-# Install the application
+# Install using Python package (recommended)
+install-python: all
+	@echo "Installing $(APP_NAME) as a Python package..."
+	pip3 install --user .
+	@echo "\033[32m✓ $(APP_NAME) installed successfully as a Python package!\033[0m"
+	@echo "Usage: $(APP_NAME) /path/to/your/project"
+	@echo "Note: Make sure the Python user scripts directory is in your PATH"
+	@echo "  On macOS, this is typically: $$HOME/Library/Python/X.Y/bin"
+	@echo "  On Linux, this is typically: $$HOME/.local/bin"
+
+# Uninstall Python package
+uninstall-python:
+	@echo "Uninstalling $(APP_NAME) Python package..."
+	pip3 uninstall -y emoji-nuker
+	@echo "\033[32m✓ $(APP_NAME) Python package uninstalled successfully!\033[0m"
+
+# Install the application (Unix-style, fixed)
 install: all
 	@echo "Installing $(APP_NAME) to $(PREFIX)..."
 	install -d $(BINDIR)
 	install -m 755 $(SCRIPT_FILE) $(BINDIR)/$(APP_NAME)
+	# Install the required Python module
+	install -d $(PREFIX)/lib/$(APP_NAME)
+	install -m 644 src/emoji_lut.py $(PREFIX)/lib/$(APP_NAME)/
 	install -d $(MAN1DIR)
 	install -m 644 $(MAN_FILE) $(MAN1DIR)/
 	install -d $(DOCDIR)
@@ -34,29 +53,38 @@ install: all
 	@if [ -f $(LICENSE_FILE) ]; then install -m 644 $(LICENSE_FILE) $(DOCDIR)/; fi
 	@echo "\033[32m✓ $(APP_NAME) installed successfully!\033[0m"
 	@echo "Usage: $(APP_NAME) /path/to/your/project"
+	@echo ""
+	@echo "Note: The Python module is installed to $(PREFIX)/lib/$(APP_NAME)/"
 
-# Uninstall the application
+# Uninstall the application (Unix-style)
 uninstall:
 	@echo "Uninstalling $(APP_NAME)..."
 	rm -f $(BINDIR)/$(APP_NAME)
+	rm -rf $(PREFIX)/lib/$(APP_NAME)
 	rm -f $(MAN1DIR)/$(APP_NAME).1
 	rm -rf $(DOCDIR)
 	@echo "\033[32m✓ $(APP_NAME) uninstalled successfully!\033[0m"
 
-# Install to user's home directory (alternative to system-wide install)
+# Install to user's home directory (Unix-style, fixed)
 install-user: all
 	@echo "Installing $(APP_NAME) to user directory..."
 	install -d $(HOME)/.local/bin
 	install -m 755 $(SCRIPT_FILE) $(HOME)/.local/bin/$(APP_NAME)
+	# Install the required Python module
+	install -d $(HOME)/.local/lib/$(APP_NAME)
+	install -m 644 src/emoji_lut.py $(HOME)/.local/lib/$(APP_NAME)/
 	install -d $(HOME)/.local/share/man/man1
 	install -m 644 $(MAN_FILE) $(HOME)/.local/share/man/man1/
 	@echo "\033[32m✓ $(APP_NAME) installed to user directory!\033[0m"
 	@echo "Make sure $(HOME)/.local/bin is in your PATH"
+	@echo ""
+	@echo "Note: The Python module is installed to $(HOME)/.local/lib/$(APP_NAME)/"
 
-# Uninstall from user directory
+# Uninstall from user directory (Unix-style)
 uninstall-user:
 	@echo "Uninstalling $(APP_NAME) from user directory..."
 	rm -f $(HOME)/.local/bin/$(APP_NAME)
+	rm -rf $(HOME)/.local/lib/$(APP_NAME)
 	rm -f $(HOME)/.local/share/man/man1/$(APP_NAME).1
 	@echo "\033[32m✓ $(APP_NAME) uninstalled from user directory!\033[0m"
 
@@ -64,6 +92,7 @@ uninstall-user:
 check-deps:
 	@echo "Checking dependencies..."
 	@command -v python3 >/dev/null 2>&1 || { echo "\033[31m✗ python3 is required but not installed\033[0m"; exit 1; }
+	@command -v pip3 >/dev/null 2>&1 || { echo "\033[31m✗ pip3 is required but not installed\033[0m"; exit 1; }
 	@echo "\033[32m✓ All dependencies satisfied\033[0m"
 
 # Run comprehensive tests
@@ -74,7 +103,7 @@ test: check-deps
 	# Test 1: Basic functionality
 	@echo "=== Test 1: Basic Functionality ==="
 	@python3 -c "import sys; sys.path.insert(0, 'src'); import emoji_lut; print('✓ Emoji LUT module loads correctly')"
-	@python3 -c "import sys; sys.path.insert(0, 'src'); exec(open('src/emoji-nuker').read().split('def main()')[0]); print('✓ Main script loads correctly')"
+	@python3 -c "import sys; sys.path.insert(0, 'src'); exec(open('src/emoji_nuker.py').read().split('def main()')[0]); print('✓ Main script loads correctly')"
 	
 	# Test 2: Historical precedence architecture
 	@echo ""
@@ -88,7 +117,7 @@ test: check-deps
 	@echo ""
 	@echo "=== Test 3: Emoji Detection ==="
 	@python3 -c "import sys; sys.path.insert(0, 'src'); \
-		exec(open('src/emoji-nuker').read().split('def main()')[0]); \
+		exec(open('src/emoji_nuker.py').read().split('def main()')[0]); \
 		from emoji_lut import is_emoji_for_replacement; \
 		single_char_emojis = ['✅', '❌', '🔥', '⚠', '⭐', '➡', '🔺', '🔻', '🚀', '😀', '😊']; \
 		multi_char_emojis = ['1️⃣', '🅰']; \
@@ -127,7 +156,7 @@ test: check-deps
 	# Test 6: Substitution validation
 	@echo ""
 	@echo "=== Test 6: Substitution Validation ==="
-	@python3 -c "import sys; sys.path.insert(0, 'src'); exec(open('src/emoji-nuker').read().split('def main()')[0]); \
+	@python3 -c "import sys; sys.path.insert(0, 'src'); exec(open('src/emoji_nuker.py').read().split('def main()')[0]); \
 		result = validate_no_emoji_in_substitutions(); \
 		print('✓ No emoji characters in substitutions') if result else (print('✗ Emoji characters found in substitutions') or exit(1))"
 	
@@ -177,24 +206,38 @@ clean:
 	rm -rf build/ dist/ *.egg-info/
 	rm -f test_*.py test_*.js test_*.cpp test_*.md
 	rm -rf test_dir/
+	find . -type f -name "*.pyc" -delete
+	find . -type d -name "__pycache__" -delete
 	@echo "\033[32m✓ Clean complete\033[0m"
 
 # Show help
 help:
 	@echo "Available targets:"
-	@echo "  all          - Build the application (default)"
-	@echo "  install      - Install system-wide (requires sudo)"
-	@echo "  install-user - Install to user directory"
-	@echo "  uninstall    - Uninstall system-wide (requires sudo)"
-	@echo "  uninstall-user - Uninstall from user directory"
-	@echo "  test         - Run comprehensive tests"
-	@echo "  test-ci      - Test CI workflow locally"
-	@echo "  check-deps   - Check dependencies"
-	@echo "  clean        - Clean build artifacts"
-	@echo "  help         - Show this help message"
+	@echo "  all               - Build the application (default)"
+	@echo ""
+	@echo "Python Package Installation (Recommended):"
+	@echo "  install-python    - Install as Python package"
+	@echo "  uninstall-python  - Uninstall Python package"
+	@echo ""
+	@echo "Unix-Style Installation:"
+	@echo "  install           - Install system-wide (requires sudo)"
+	@echo "  install-user      - Install to user directory"
+	@echo "  uninstall         - Uninstall system-wide (requires sudo)"
+	@echo "  uninstall-user    - Uninstall from user directory"
+	@echo ""
+	@echo "Development:"
+	@echo "  test              - Run comprehensive tests"
+	@echo "  test-ci           - Test CI workflow locally"
+	@echo "  check-deps        - Check dependencies"
+	@echo "  clean             - Clean build artifacts"
+	@echo "  help              - Show this help message"
 	@echo ""
 	@echo "Configuration:"
 	@echo "  PREFIX=$(PREFIX) (set PREFIX= to override)"
+	@echo ""
+	@echo "Installation Options:"
+	@echo "  • Python Package: make install-python (recommended)"
+	@echo "  • Unix-Style:     make install-user (traditional)"
 	@echo ""
 	@echo "Features tested:"
 	@echo "  • Historical precedence architecture"
@@ -203,4 +246,4 @@ help:
 	@echo "  • Emoji detection and substitution validation"
 
 # Phony targets
-.PHONY: all install uninstall install-user uninstall-user test test-ci check-deps clean help 
+.PHONY: all install install-python uninstall uninstall-python install-user uninstall-user test test-ci check-deps clean help 

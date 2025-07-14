@@ -18,9 +18,48 @@ import re
 import sys
 import argparse
 import unicodedata
-from emoji_lut import EMOJI_LUT, get_emoji_pattern, is_emoji_for_replacement
 from pathlib import Path
 from typing import Set, Pattern, Dict, List, Tuple, Optional
+
+# Handle module import for both Python package and Unix-style installations
+def setup_module_path():
+    """Setup the Python path to find emoji_lut module."""
+    # Try to import directly first (Python package installation)
+    try:
+        from emoji_lut import EMOJI_LUT, get_emoji_pattern, is_emoji_for_replacement
+        return EMOJI_LUT, get_emoji_pattern, is_emoji_for_replacement
+    except ImportError:
+        # Unix-style installation: look for module in lib directory
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        
+        # Check for Unix-style installation paths
+        possible_paths = [
+            os.path.join(script_dir, '..', 'lib', 'emoji-nuker'),  # Relative to script
+            '/usr/local/lib/emoji-nuker',  # System-wide
+            '/usr/lib/emoji-nuker',  # Alternative system-wide
+            os.path.expanduser('~/.local/lib/emoji-nuker'),  # User directory
+        ]
+        
+        for lib_path in possible_paths:
+            if os.path.exists(os.path.join(lib_path, 'emoji_lut.py')):
+                sys.path.insert(0, lib_path)
+                try:
+                    from emoji_lut import EMOJI_LUT, get_emoji_pattern, is_emoji_for_replacement
+                    return EMOJI_LUT, get_emoji_pattern, is_emoji_for_replacement
+                except ImportError:
+                    continue
+        
+        # If all else fails, try current directory (development)
+        sys.path.insert(0, script_dir)
+        try:
+            from emoji_lut import EMOJI_LUT, get_emoji_pattern, is_emoji_for_replacement
+            return EMOJI_LUT, get_emoji_pattern, is_emoji_for_replacement
+        except ImportError:
+            print("Error: Could not find emoji_lut module. Please ensure proper installation.")
+            sys.exit(1)
+
+# Import the module
+EMOJI_LUT, get_emoji_pattern, is_emoji_for_replacement = setup_module_path()
 
 
 # Supported file extensions
@@ -512,11 +551,14 @@ class EmojiSubstitution:
         return self.builder.build_substitution(emoji)
     
     def process_content(self, content: str, file_path: str) -> str:
-        """Process content and either substitute or collect emojis."""
+        """Process content and either substitute, collect, or remove emojis."""
         if self.substitute:
             return self._substitute_emojis(content, file_path)
-        else:
+        elif self.interactive:
             return self._collect_emojis(content, file_path)
+        else:
+            # Default behavior: remove emojis
+            return self._remove_emojis(content, file_path)
     
     def _find_emojis_for_replacement(self, content: str) -> List[str]:
         """Find all emojis in content that should be replaced using historical precedence."""
@@ -566,6 +608,20 @@ class EmojiSubstitution:
             else:
                 new_content = new_content.replace(emoji, "")
                 print(f"\033[33m⚠ Removed '{emoji}' (no substitution/label) from {file_path}\033[0m")
+        
+        return new_content
+    
+    def _remove_emojis(self, content: str, file_path: str) -> str:
+        """Remove emojis from content (default behavior)."""
+        emojis = self._find_emojis_for_replacement(content)
+        
+        # Sort by length (longest first) to avoid partial replacements
+        emojis.sort(key=len, reverse=True)
+        
+        new_content = content
+        for emoji in emojis:
+            new_content = new_content.replace(emoji, "")
+            print(f"\033[33m⚠ Removed '{emoji}' from {file_path}\033[0m")
         
         return new_content
     
