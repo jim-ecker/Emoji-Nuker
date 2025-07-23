@@ -9,7 +9,7 @@ log messages, or commit artifacts in codebases before production or archiving.
 Usage:
     emoji-nuker /path/to/project
 
-Author: Your Name
+Author: Jim Ecker
 License: MIT
 """
 
